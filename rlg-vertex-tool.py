@@ -88,25 +88,6 @@ def bytes_to_float(bytes):
 
 
 # CORE FUNCTIONS
-def read_model_data(rlg):
-    
-    section_info = rlg_get_section_info( rlg, SECTION_MODEL_DATA )
-    location = section_info[0]
-    section_size = section_info[2]
-
-    # go to where model data starts
-    rlg.seek( location + 8, 0 )
-
-    # loop on it and read stuff idk
-    model_count = section_size//12
-    for i in range(0, model_count):
-        rlg.read(4)
-        mesh_count = int.from_bytes( rlg.read(4), "big" )
-        print("mesh count: " +str(mesh_count))
-        rlg.read(4)
-
-
-
 # Function to read the vertices of a rlg file. Returns a list containing all the vertices
 def get_vertices_from_rlg( rlg, vertex_attributes ):
     
@@ -149,22 +130,6 @@ def get_vertices_from_rlg( rlg, vertex_attributes ):
 
 
 
-#TODO remove this garbage
-def get_indices_from_rlg(rlg):
-
-    section_info = rlg_get_section_info( rlg, SECTION_INDEX_DATA )
-    location = section_info[0]
-
-    rlg.seek( location+8 , 0 )
-
-    a = []
-    for i in range(8): #TODO range(4) is temporary. replace it with length of section
-        a.append( [rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2)] )
-    return a
-
-
-
-
 # returns an array of dicts. Each dict is a vertex attribute instance
 def read_vertex_attribute(rlg):
     
@@ -192,6 +157,26 @@ def read_vertex_attribute(rlg):
             "0x6" : unknown_0x6
         } )
     return a
+
+
+
+
+def read_model_data(rlg):
+    
+    section_info = rlg_get_section_info( rlg, SECTION_MODEL_DATA )
+    location = section_info[0]
+    section_size = section_info[2]
+
+    # go to where model data starts
+    rlg.seek( location + 8, 0 )
+
+    # loop on it and read stuff idk
+    model_count = section_size//12
+    for i in range(0, model_count):
+        rlg.read(4)
+        mesh_count = int.from_bytes( rlg.read(4), "big" )
+        print("mesh count: " +str(mesh_count))
+        rlg.read(4)
 
 
 
@@ -259,6 +244,22 @@ def read_mesh_data(rlg, verbose = False):
             )
     return a
     
+
+
+
+#TODO remove this garbage
+def get_indices_from_rlg(rlg):
+
+    section_info = rlg_get_section_info( rlg, SECTION_INDEX_DATA )
+    location = section_info[0]
+
+    rlg.seek( location+8 , 0 )
+
+    a = []
+    for i in range(8): #TODO range(4) is temporary. replace it with length of section
+        a.append( [rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2)] )
+    return a
+
 
 
 
