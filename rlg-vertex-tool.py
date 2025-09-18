@@ -15,7 +15,9 @@ SECTION_BONE_DATA = b'\x00\x01\xb0\x0a'
 SECTION_UNKNOWN_DATA = b'\x00\x01\xb0\x0c'
 SECTION_MATERIAL_DATA = b'\x00\x01\xb0\x16'
 
-
+# VERTEX ATTRIBUTE CONSTANTS
+VERTEX_ATTRIBUTE_TYPE_VERTEX = 0x67
+VERTEX_ATTRIBUTE_TYPE_THING_THAT_COMES_BEFORE_VERTEX = 0xb0
 
 
 # RLG UTILITY FUNCTIONS
@@ -32,9 +34,21 @@ def rlg_get_section_info( rlg, section_identifier ):
     a = []
     data = rlg_get_data( rlg )
     location = data.find( section_identifier )
-    a.append( location )              # location of section
-    a.append( data[ location ] )      # flags
-    a.append( data[ location + 4 ] )  # section size
+
+    # location of section
+    a.append( location )        
+
+    # flags      
+    rlg.seek( location, 0 )
+    flags = rlg.read(2)
+    flags = int.from_bytes( flags, "big" )
+    a.append( flags )           
+
+    # section size
+    rlg.seek( location + 4, 0 )
+    section_size = rlg.read(4)
+    section_size = int.from_bytes( section_size, "big" )
+    a.append( section_size )          
     return a
 
 
@@ -78,7 +92,7 @@ def read_model_data(rlg):
     section_size = section_info[2]
 
     # go to where model data starts
-    rlg.seek( location + 4, 0 )
+    rlg.seek( location + 8, 0 )
 
     # loop on it and read stuff idk
     model_count = section_size//12
@@ -91,52 +105,57 @@ def read_model_data(rlg):
 
 
 # Function to read the vertices of a rlg file
-def get_vertices_from_rlg(rlg, vertex_attributes):
-
+def get_vertices_from_rlg( rlg, vertex_attributes ):
+    
+    # get section info
     section_info = rlg_get_section_info( rlg, SECTION_VERTEX_DATA )
     location = section_info[0]
     section_size = section_info[2]
 
-    # go to where vertex data starts
-    rlg.seek( location + 4, 0 )
-
-    section_size = int.from_bytes( rlg.read(4), "big" )
-    start_of_data = rlg.tell()
+    # set up some variables for the loop
+    start_of_data = location + 8
+    rlg.seek( start_of_data, 0 ) 
+    end_of_section = start_of_data + section_size
     group = 0
-    last_0x4 = 0
-    unknown_0x4 = None
+    type_prev = 0  # byte 0x4 of an instance of vertex attribute. (on previous iteration)
+    type = None    # byte 0x4 of an instance of vertex attribute
     a = []
-    while rlg.tell() < start_of_data+section_size:
+
+    # repeat until the section ends. Get all the vertices
+    while rlg.tell() < end_of_section:
         current_byte = rlg.tell() - start_of_data
         stride = 4
-        # check vertex attribute offset
-        for i in vertex_attributes:
-            if( i['offset'] <= current_byte ):
-                stride = i['stride']
-                unknown_0x4 = i['0x4']                
-        if(last_0x4 == 0xb0 and unknown_0x4 == 0x67):
-            group += 1
-        last_0x4 = unknown_0x4
 
-        new_vector = []
+        # get all instances of vertex attribute
+        for i, instance in enumerate(vertex_attributes):
+            if( instance['offset'] <= current_byte ):  # Find which offset this vertex corresponds to and get the associated data
+                stride = instance['stride']
+                type = instance['0x4']       
+                # print( "vertex_attribute=" + str(i) + " stride=" + str(stride) + " type=" + str(type) )   
+
+        # GROUP: keep track of group number. Increment it every time the type loops
+        if( type_prev == VERTEX_ATTRIBUTE_TYPE_THING_THAT_COMES_BEFORE_VERTEX and type == VERTEX_ATTRIBUTE_TYPE_VERTEX ):
+            group += 1
+
+        type_prev = type
+
+        # VALUE: save all the vertexes floats to an array
+        values = []
         for i in range(0, stride//4):
             bytes = rlg.read(4)
             f = struct.unpack( '!f', bytes )[0]
-            new_vector.append(f)
-        a.append( {
-            "offset" : current_byte,
-            "type" : unknown_0x4, 
-            "group" : group,
-            "values" : new_vector
-        } )
-    
-    # fliter only the vertices we need
-    vertices = []
+            values.append(f)
 
-    for i in a:
-        if( i['type'] == 0x67 ):
-            vertices.append( i )
-    return vertices
+        # append a vertex attribute instance to the array
+        if( type == VERTEX_ATTRIBUTE_TYPE_VERTEX ):
+            a.append( {
+                "offset" : current_byte,
+                "type" : type, 
+                "group" : group,
+                "values" : values
+            } )
+
+    return a
 
 
 
@@ -155,20 +174,23 @@ def get_indices_from_rlg(rlg):
     return a
 
 
+
+
+# returns an array of dicts. Each dict is a vertex attribute instance
 def read_vertex_attribute(rlg):
     
     section_info = rlg_get_section_info( rlg, SECTION_VERTEX_ATTRIBUTES )
     location = section_info[0]
     section_size = section_info[2]
+    start_of_data = location + 8
 
-    # go to where data starts
-    rlg.seek( location + 4 ,0)
+    # set some variables for the loop
+    rlg.seek( start_of_data ,0)
+    a = []
+    end_of_section = start_of_data + section_size
 
     # read data
-    section_size_b = rlg.read(4)
-    section_size = int.from_bytes( section_size_b, "big" )
-    a = []
-    while rlg.tell() < location+8+section_size:  # TODO: this is ugly as hell. Fix
+    while rlg.tell() < end_of_section: 
         offset = int.from_bytes( rlg.read(4), "big" )
         unknown_0x4 = int.from_bytes( rlg.read(1), "big" )
         stride = int.from_bytes( rlg.read(1), "big" )
@@ -442,31 +464,33 @@ def read_obj(filename):
 
 
 def generate_new_rlg(original_rlg):
-    # Get the rlg filename without extension
+
+    # Get the rlg filename (without extension)
     filename = os.path.basename(original_rlg.name)
     filename = re.split(".rlg", filename)[0]
+
     # Get the data from both the rlg and the obj
     try:
         new_vertices = read_obj(filename)
     except:
         print("Error: .obj file not found")
         return
-    old_vertices = get_vertices_from_rlg(original_rlg, read_vertex_attribute(original_rlg))
+    
+    # check if files have the same amount of vertices. Throw a warning if not
+    old_vertices = get_vertices_from_rlg( original_rlg, read_vertex_attribute(original_rlg) )
     print("Found " + str(len(new_vertices)) + " Vertices in given obj file")
     print("Found " + str(len(old_vertices)) + " Vertices in given rlg file")
     if( len(new_vertices) != len(old_vertices)):
         print("Warning: The vertex count of the two files doesn't match. This may lead to errors, or the output rlg file might be incorrect")
 
+    # open the file and find the start of the section we need
     rlg = open("rlg/"+filename+".rlg", "rb")
-    
-    section_info = rlg_get_section_info( rlg, SECTION_MESH_DATA )
-    location = section_info[0]
-    
-    # find the start of the section we need
+    section_info = rlg_get_section_info( rlg, SECTION_VERTEX_DATA )
+    location = section_info[0]  
     start_of_data = location+8
     rlg.close()
 
-    # Now it's time to copy the rlg file and replace its vertices 
+    # copy the rlg file to the output folder and replace its vertices 
     shutil.copyfile('./rlg/'+filename+'.rlg', './output/'+filename+'.rlg')
     rlg = open("output/"+filename+'.rlg', "r+b")
     vertex_num = 0
@@ -488,24 +512,33 @@ def generate_new_rlg(original_rlg):
 
 
 
-# Function to convert a .rlg files to .obj that only contains vertices.
+# PROCEDURES FOR CONVERTING FILES
+# Function to convert a .rlg file to .obj that only contains vertices.
 def extract_rlg_vertices_to_obj_file( rlg ):
     vertex_attributes = read_vertex_attribute(rlg)
     vertices = get_vertices_from_rlg(rlg, vertex_attributes)
     create_obj(i, vertices)
 
 
-
-# Function to convert a .rlg files to multiple .obj that only contains vertices. Each obj is a group
-def extract_rlg_vertices_to_multiple_obj_files_separate_by_group(rlg):
+# Function to convert a .rlg file to multiple .obj that only contains vertices. Each obj is a group
+def extract_rlg_vertices_to_multiple_obj_files_separate_by_group( rlg ):
     vertex_attributes = read_vertex_attribute(rlg)
     vertices = get_vertices_from_rlg(rlg, vertex_attributes)
     create_obj_for_each_group(i, vertices)
     rlg.close()
 
 
+# WIP function to convert a .rlg file to .obj that contains vertices and faces.
+def extract_rlg_vertices_and_faces_to_obj_file( rlg ):
+    vertex_attributes = read_vertex_attribute(rlg)
+    vertices = get_vertices_from_rlg(rlg, vertex_attributes)
+    indices = get_indices_from_rlg(rlg)
+    create_obj(i, vertices, indices)
 
 
+
+
+# FUNCTIONS THAT PRINT DATA TO TXT FILE
 def print_vertex_attributes_to_file(rlg):
     # Read vertex attributes
     vertex_attribute = read_vertex_attribute(rlg)
@@ -520,8 +553,6 @@ def print_vertex_attributes_to_file(rlg):
             txt.write("\n")
         txt.write("------------------------------------------------\n")
     txt.close
-
-
 
 
 def print_mesh_data_to_file(rlg):
@@ -541,7 +572,6 @@ def print_mesh_data_to_file(rlg):
     txt.close
 
 
-
 def print_index_data_to_file(rlg):
     # Read index data
     bytestr = read_index_data(rlg)
@@ -557,7 +587,9 @@ def print_index_data_to_file(rlg):
     print("Created txt file containing index data of " +i+ " in output folder")
 
 
-# start of code
+
+
+# START OF CODE
 while True:
     r = input('''\n\n-- Select a command --
               
@@ -589,12 +621,8 @@ while True:
             extract_rlg_vertices_to_obj_file( rlg )
 
         #TODO test
-        if(r == "palle"):
-            # Convert all the .rlg files to .obj 
-            vertex_attributes = read_vertex_attribute(rlg)
-            vertices = get_vertices_from_rlg(rlg, vertex_attributes)
-            indices = get_indices_from_rlg(rlg)
-            create_obj(i, vertices, indices)
+        elif(r == "palle"):
+            extract_rlg_vertices_and_faces_to_obj_file( rlg )
 
         elif(r == "g"):
             generate_new_rlg(rlg)
