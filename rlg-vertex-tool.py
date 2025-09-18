@@ -1,22 +1,53 @@
 import os, struct, math, shutil, glob, re
 
+
+
+section_matrix_data = b'\x00\x01\xb0\x02'
+section_model_data = b'\x00\x01\xb0\x03'
+section_mesh_data = b'\x00\x01\xb0\x04'
+section_vertex_attributes = b'\x00\x01\xb0\x05'
+section_vertex_data = b'\x00\x01\xb0\x06'
+section_index_data = b'\x00\x01\xb0\x07'
+section_skeleton_data = b'\x00\x01\xb0\x08'
+section_bone_mesh_hashes = b'\x00\x01\xb0\x0b'
+section_bone_data = b'\x00\x01\xb0\x0a'
+section_unkown_data = b'\x00\x01\xb0\x0c'
+section_material_data = b'\x00\x01\xb0\x16'
+
+
+def rlg_get_size(rlg):
+    rlg.seek(0,2)
+    return rlg.tell()
+
+def rlg_get_data(rlg):
+    size = rlg_get_size( rlg )
+    rlg.seek(0,0)
+    return rlg.read( size )
+
+def rlg_get_section_info( rlg, section_identifier ):
+    a = []
+    data = rlg_get_data( rlg )
+    location = data.find( section_identifier )
+    a.append( location )              # location of section
+    a.append( data[ location ] )      # flags
+    a.append( data[ location + 4 ] )  # section size
+    return a
+
+
+
 # Function to read floats of the vertex data section
 # I made this when I didn't know anything else about how the vertex section works
 def read_vertex_floats(rlg):
-    # find the file size
-    rlg.seek(0,2)
-    file_size = rlg.tell()
-    # read the data
-    rlg.seek(0,0)
-    data = rlg.read( file_size )
-    #print( byte_hex_str(data) )
+
+    file_size = rlg_get_size(rlg)
+    data = rlg_get_data(rlg)
 
     #find the section
-    location = data.find(b'\x00\x01\xb0\x06')
+    location = data.find( section_vertex_data )
     print( hex(location) )
 
     floats = []
-    rlg.seek( location+8 ,0)
+    rlg.seek( location+8 ,0 )
     while rlg.tell() < file_size:
         bytes = rlg.read(4)
         f = struct.unpack( '!f', bytes )[0]
@@ -25,20 +56,38 @@ def read_vertex_floats(rlg):
         floats.append(f)
     print(floats[:10])
 
+
+
+
+def read_model_data(rlg):
+    
+    section_info = rlg_get_section_info( rlg, section_model_data )
+    location = section_info[0]
+    section_size = section_info[2]
+
+    # go to where model data starts
+    rlg.seek( location + 4, 0 )
+
+    # loop on it and read stuff idk
+    model_count = section_size//12
+    for i in range(0, model_count):
+        rlg.read(4)
+        mesh_count = int.from_bytes( rlg.read(4), "big" )
+        print("mesh count: " +str(mesh_count))
+        rlg.read(4)
+
+
+
 # Function to read the vertices of a rlg file
 def get_vertices_from_rlg(rlg, vertex_attributes):
-    # find the file size
-    rlg.seek(0,2)
-    file_size = rlg.tell()
-    # read the data
-    rlg.seek(0,0)
-    data = rlg.read( file_size )
-    #print( byte_hex_str(data) )
 
-    #find the section
-    location = data.find(b'\x00\x01\xb0\x06')
+    section_info = rlg_get_section_info( rlg, section_vertex_data )
+    location = section_info[0]
+    section_size = section_info[2]
 
-    rlg.seek( location+4 ,0)
+    # go to where vertex data starts
+    rlg.seek( location + 4, 0 )
+
     section_size = int.from_bytes( rlg.read(4), "big" )
     start_of_data = rlg.tell()
     group = 0
@@ -78,24 +127,34 @@ def get_vertices_from_rlg(rlg, vertex_attributes):
     return vertices
 
 
-def read_vertex_attribute(rlg):
-    # find the file size
-    rlg.seek(0,2)
-    file_size = rlg.tell()
-    # read the data
-    rlg.seek(0,0)
-    data = rlg.read( file_size )
-    #print( byte_hex_str(data) )
+#TODO remove this garbage
+def get_indices_from_rlg(rlg):
 
-    #find the section
-    location = data.find(b'\x00\x01\xb0\x05')
+    section_info = rlg_get_section_info( rlg, section_index_data )
+    location = section_info[0]
+
+    rlg.seek( location+8 , 0 )
+
+    a = []
+    for i in range(8): #TODO range(4) is temporary. replace it with length of section
+        a.append( [rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2)] )
+    return a
+
+
+def read_vertex_attribute(rlg):
+    
+    section_info = rlg_get_section_info( rlg, section_vertex_attributes )
+    location = section_info[0]
+    section_size = section_info[2]
+
+    # go to where data starts
+    rlg.seek( location + 4 ,0)
 
     # read data
-    rlg.seek( location+4 ,0)
     section_size_b = rlg.read(4)
     section_size = int.from_bytes( section_size_b, "big" )
     a = []
-    while rlg.tell() < location+8+section_size:
+    while rlg.tell() < location+8+section_size:  # TODO: this is ugly as hell. Fix
         offset = int.from_bytes( rlg.read(4), "big" )
         unknown_0x4 = int.from_bytes( rlg.read(1), "big" )
         stride = int.from_bytes( rlg.read(1), "big" )
@@ -110,29 +169,25 @@ def read_vertex_attribute(rlg):
     return a
 
 
+
+
 def read_mesh_data(rlg, verbose = False):
-    # Get the rlg filename without extension
+
+    # get the filename and strip the extention
     filename = os.path.basename(rlg.name)
     print("Reading mesh data of: " +filename)
-    # find the file size
-    rlg.seek(0,2)
-    file_size = rlg.tell()
-    # read the data
-    rlg.seek(0,0)
-    data = rlg.read( file_size )
-    #print( byte_hex_str(data) )
+    
+    section_info = rlg_get_section_info( rlg, section_mesh_data )
+    location = section_info[0]
+    section_size = section_info[2]
 
-    #find the section
-    location = data.find(b'\x00\x01\xb0\x04')
-
-    # get section size
-    rlg.seek( location+4 ,0)
-    section_size = int.from_bytes( rlg.read(4), "big" )
+    # go to where data starts
+    rlg.seek( location+4 , 0 )
     start_of_data = rlg.tell()
 
     # read data
     a = []
-    while rlg.tell() < start_of_data+section_size:
+    while rlg.tell() < start_of_data+section_size:  # TODO: edit the condition to make it more readable
         index_start_offset = int.from_bytes( rlg.read(4), "big" )
         index_flags = int.from_bytes( rlg.read(4), "big" )
         face_type = int.from_bytes( rlg.read(1), "big" )
@@ -166,7 +221,7 @@ def read_mesh_data(rlg, verbose = False):
             }   
             )
         else:
-            a.append( { 
+            a.append( {  # TODO: redundant code?
                 "index_start_offset" : index_start_offset,
                 "index_count" : index_flags & 0xffffff,
                 "index_format" : index_flags >> 24,
@@ -180,23 +235,20 @@ def read_mesh_data(rlg, verbose = False):
     return a
     
 
+
+
 def read_index_data(rlg):
-    filename = os.path.basename(rlg.name)
+
+    filename = os.path.basename(rlg.name)  # TODO: this message doesn't have to be here
     print("Reading index data of: " +filename)
-    # find the file size
-    rlg.seek(0,2)
-    file_size = rlg.tell()
-    # read the data
-    rlg.seek(0,0)
-    data = rlg.read( file_size )
+    
+    section_info = rlg_get_section_info( rlg, section_index_data )
+    location = section_info[0]
+    section_size = section_info[2]
 
-    #find the section
-    location = data.find(b'\x00\x01\xb0\x07')
-
-    # get section size
-    rlg.seek( location+4 ,0)
-    section_size = int.from_bytes( rlg.read(4), "big" )
-    start_of_data = rlg.tell()
+    # go to where data starts
+    rlg.seek( location + 4 ,0)
+    start_of_data = rlg.tell() 
 
     bytestr = b''
 
@@ -204,65 +256,101 @@ def read_index_data(rlg):
     return bytestr
 
 
-def read_index_data_group_by_mesh(rlg):
+
+
+def read_index_data_and_group_by_mesh(rlg):
+    data = []
+    read_model_data(rlg)
+    filename = os.path.basename(rlg.name)
+    # Read data
     mesh_data = read_mesh_data(rlg, True)
     index_data = read_index_data(rlg)
     vertex_attribute = read_vertex_attribute(rlg)
     # Create text file
-    txt = open("output/_miscdata.txt", "w")
+    txt = open("output/" +filename+ "_miscdata.txt", "w")
+
     # Loop 
     for m in range(0, len(mesh_data)):
+
         # Mesh data
         txt.write("================================ MESH " +str(m)+ ": ================================\n")
         for i in mesh_data[m]:
             txt.write( str(i) + " : " +str(mesh_data[m].get(i))+ "\n")
+
         # Vertex attributes of mesh
         txt.write("----------------------------------------------------------------\n")
         txt.write("VERTEX ATTRIBUTES: \n")
         mesh_vertex_attributes = vertex_attribute[10*m:10*(m+1)]
         for i in mesh_vertex_attributes:
             txt.write( str(i) + "\n")
+
         # Vertices of mesh
         txt.write("----------------------------------------------------------------\n")
         txt.write("VERTICES: \n")
         vertices = get_vertices_from_rlg(rlg, mesh_vertex_attributes)
         for i in vertices:
             # Number of the vertex inside the mesh
-            vertex_number = hex( i["offset"]//12 - mesh_vertex_attributes[0]["offset"] )
+            vertex_number = hex( ( i["offset"] - mesh_vertex_attributes[0]["offset"] ) // 12 )
             txt.write( "Offset: " +hex(i["offset"])+ " (Num: " +vertex_number+ ") Coordinates: " +str(i["values"])+ "\n")
+        
         # Index data
         txt.write("----------------------------------------------------------------\n")
         txt.write("INDEX DATA: \n")
-        index_data_end = mesh_data[m]['index_start_offset']+(mesh_data[m]['index_count']*2)
-        for i in range(mesh_data[m]['index_start_offset'], index_data_end):
+        index_data_end = mesh_data[m]['index_start_offset'] + ( (mesh_data[m]['index_count']) * 2 )
+        mesh_index_data = []
+        for i in range(mesh_data[m]['index_start_offset'], index_data_end): 
+            mesh_index_data.append( index_data[i] )
             txt.write( byte_hex( index_data[i]) )
             if(i%2 == 1):
                 txt.write(" ")
             if(i%24 == 23):
                 txt.write("\n")
         txt.write("\n\n\n\n\n\n")
-    print("_miscdata.txt file successfully created in output folder")
+
+        # Add data to array
+        data.append({
+            "mesh_data" : mesh_data,
+            "index_data" : mesh_index_data,
+            "vertex_attribute" : mesh_vertex_attributes,
+            "vertices" : vertices
+        })
+    print(filename+"_miscdata.txt file successfully created in output folder")
     txt.close()
+    return data
 
 
 
-def create_obj(filename, vertices):
+
+def create_obj(filename, vertices, indices=[]):
     # Remove .rlg from the filename
     filename = re.split(".rlg", filename)[0]
     # Create file
     obj = open("output/" +filename+ ".obj", "w")
     curr_group = -1
+
+    # Now write the vertices
     for v in vertices:
         # Write the group of the vertices
         if(v["group"] != curr_group):
+
+            #TODO temporary (print the first faces if this is group 1) One day I really need to burn this whole script in a fire and rewrite it from scratch
+            if(v["group"] == 1):
+                for i in indices:
+                    obj.write("f " +str(int.from_bytes(i[0], 'big'))+ "/" +str(int.from_bytes(i[1], 'big'))+ "/" +str(int.from_bytes(i[2], 'big')) )
+                    obj.write(" " +str(int.from_bytes(i[3], 'big'))+ "/" +str(int.from_bytes(i[4], 'big'))+ "/" +str(int.from_bytes(i[5], 'big')) )
+                    obj.write(" " +str(int.from_bytes(i[6], 'big'))+ "/" +str(int.from_bytes(i[7], 'big'))+ "/" +str(int.from_bytes(i[8], 'big')) + "\n" )
+
             curr_group = v["group"]
             line = "g group" + str( v["group"] ) + "\n"
             obj.write(line)
         # Write the vertex
         line = "v " + str( v["values"][0] ) + " " + str( v["values"][1] ) + " " + str( v["values"][2] ) + "\n"
         obj.write(line)
+
     print(filename + ".obj was successfully created in output folder")
     obj.close()
+
+
 
 
 def create_obj_for_each_group(filename, vertices):
@@ -287,6 +375,8 @@ def create_obj_for_each_group(filename, vertices):
         obj.write(line)
     print("files created in output folder")
     obj.close()
+
+
 
 
 def read_obj(filename):
@@ -335,6 +425,8 @@ def read_obj(filename):
     return array_of_vertices
 
 
+
+
 def generate_new_rlg(original_rlg):
     # Get the rlg filename without extension
     filename = os.path.basename(original_rlg.name)
@@ -352,14 +444,12 @@ def generate_new_rlg(original_rlg):
         print("Warning: The vertex count of the two files doesn't match. This may lead to errors, or the output rlg file might be incorrect")
 
     rlg = open("rlg/"+filename+".rlg", "rb")
-    # find the file size
-    rlg.seek(0,2)
-    file_size = rlg.tell()
-    # read the data
-    rlg.seek(0,0)
-    data = rlg.read( file_size )
+    
+    section_info = rlg_get_section_info( rlg, section_mesh_data )
+    location = section_info[0]
+    
     # find the start of the section we need
-    start_of_data = data.find(b'\x00\x01\xb0\x06')+8
+    start_of_data = location+8
     rlg.close()
 
     # Now it's time to copy the rlg file and replace its vertices 
@@ -397,15 +487,22 @@ def byte_hex(byte):
         chars = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f']
         return (chars[upper4] + chars[lower4])
 
+# Function that scans the rlg folder for files and returns a list containing all the file names
 def get_all_rlg_filenames():
+
     filenames_r = glob.glob("./rlg/*.rlg")
     filenames = []
+    
     print("found", str(len(filenames_r)), "rlg files:")
     for i in filenames_r:
         file = re.split("\\\\", i)[1]
         print(file)
         filenames.append(file)
     return filenames
+
+
+
+
 
 while True:
     r = input('''\n\n-- Select a command --
@@ -423,45 +520,46 @@ while True:
     
     exit - Exit\n\n''')
 
+    # Check if response is exit
+    if(r == "exit"):
+        exit()
+
     filenames = get_all_rlg_filenames()
     
-    if(r == "e"):
-        # Convert all the .rlg files to .obj
-        for i in filenames:
-            rlg = open("rlg/" + i, "rb")
+
+    for i in filenames:
+        rlg = open("rlg/" + i, "rb")
+        print("\n================================================================")
+
+        if(r == "e"):
+            # Convert all the .rlg files to .obj 
             vertex_attributes = read_vertex_attribute(rlg)
             vertices = get_vertices_from_rlg(rlg, vertex_attributes)
-            print("\n================================================================")
             create_obj(i, vertices)
-            print("================================================================")
-            rlg.close()
-    elif(r == "g"):
-        for i in filenames:
-            rlg = open("rlg/" + i, "rb")
-            print("\n================================================================")
-            generate_new_rlg(rlg)
-            print("================================================================")
-            rlg.close()
-    elif(r == "es"):
-        # Convert all the .rlg files to .obj
-        for i in filenames:
-            rlg = open("rlg/" + i, "rb")
+
+        #TODO test
+        if(r == "palle"):
+            # Convert all the .rlg files to .obj 
             vertex_attributes = read_vertex_attribute(rlg)
             vertices = get_vertices_from_rlg(rlg, vertex_attributes)
-            print("\n================================================================")
-            create_obj_for_each_group(i, vertices)
-            print("================================================================")
-            rlg.close()
-    elif(r == "exit"):
-        exit()
-    elif(r == "va"):
-        for i in filenames:
-            rlg = open("rlg/" + i, "rb")
-            print("\n================================================================")
+            indices = get_indices_from_rlg(rlg)
+            create_obj(i, vertices, indices)
+
+        elif(r == "g"):
+            generate_new_rlg(rlg)
+
+        elif(r == "es"):
+            # Convert all the .rlg files to .obj
+                vertex_attributes = read_vertex_attribute(rlg)
+                vertices = get_vertices_from_rlg(rlg, vertex_attributes)
+                create_obj_for_each_group(i, vertices)
+                rlg.close()
+
+        elif(r == "va"):
+            # Read vertex attributes
             vertex_attribute = read_vertex_attribute(rlg)
             for a in vertex_attribute:
                 print(a)
-            rlg.close()
             # Print vertex attribute on text file
             txt = open("output/" +i+ "_vertexattribute.txt", "w")
             txt.write( str(len(vertex_attribute)) +" attributes found\n\n")
@@ -471,11 +569,9 @@ while True:
                     txt.write("\n")
                 txt.write("------------------------------------------------\n")
             txt.close
-            print("================================================================")
-    elif(r == "mesh"):
-        for i in filenames:
-            rlg = open("rlg/" + i, "rb")
-            print("\n================================================================")
+
+        elif(r == "mesh"):
+            # Read mesh data
             mesh_data = read_mesh_data(rlg, True)
             for m in mesh_data:
                 print(m)
@@ -489,11 +585,9 @@ while True:
                     txt.write("\n")
                 txt.write("------------------------------------------------\n")
             txt.close
-            print("================================================================")
-    elif(r == "index"):
-        for i in filenames:
-            rlg = open("rlg/" + i, "rb")
-            print("\n================================================================")
+
+        elif(r == "index"):
+            # Read index data
             bytestr = read_index_data(rlg)
             rlg.close()
             # Print index data on text file
@@ -505,13 +599,15 @@ while True:
                     txt.write("\n")
             txt.close()
             print("Created txt file containing index data of " +i+ " in output folder")
-            print("================================================================")
-    elif(r == "data" or r == "d"):
-        for i in filenames:
-            rlg = open("rlg/" + i, "rb")
-            read_index_data_group_by_mesh(rlg)
-            rlg.close()
-    else:
-        print("invalid input")
+
+        elif(r == "data" or r == "d"):
+            # Read data
+            read_index_data_and_group_by_mesh(rlg)
+
+        else:
+            print("invalid input")
+            break
+        print("================================================================")
+        rlg.close()
     rlg.close()
     input("Press Enter to continue...")
