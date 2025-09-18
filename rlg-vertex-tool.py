@@ -503,23 +503,44 @@ def extract_rlg_vertices_and_faces_to_obj_file( rlg ):
 
 # FUNCTIONS THAT PRINT DATA TO TXT FILE
 def print_misc_data_to_file(rlg):
+
     filename = os.path.basename(rlg.name)
     data = read_index_data_and_group_by_mesh(rlg)
+
     txt = open("output/" +filename+ "_miscdata.txt", "w")
+
+    txt.write( "ALL MESH DATA:\n" )
+    for d in data:
+        txt.write( str(d['mesh_data'] ) + "\n" )
+    txt.write( "\n\n\n\n" )
+
     for i, d in enumerate(data):
+
         txt.write( "data[" +str(i)+ "]\n" )
-        txt.write( "\nMESH DATA:\n" )
+        txt.write( "\nMESH DATA:\n" ) # TODO: iterate on the whole dict, and print ints as hex
         txt.write( str( d['mesh_data'] ) + "\n" )
+
         txt.write( "\nINDEX DATA:\n" )
+        max_index = 0
         for e in d['index_data']:
-            txt.write( str(e) + " " )
+            txt.write( str(hex(e)) + " " )
+            if( e > max_index ):
+                max_index = e
+        txt.write( "\nbiggest index of mesh: " + str(hex(max_index)) )
+
         txt.write( "\n\nVERTEX ATTRIBUTE:\n" )
         for e in d['vertex_attribute']:
             txt.write( str(e) + "\n" )
+
         txt.write( "\nVERTICES:\n" )
+        vertex_id = 0x0
         for e in d['vertices']:
-            txt.write( str(e) + "\n" )
+            txt.write( "VERTEX " + hex( vertex_id ) + " " )
+            vertex_id += 1
+            txt.write( str( e['values'] ) )
+            txt.write( "\n" )
         txt.write("\n\n\n\n\n\n\n\n")
+
     txt.close()
     print(filename+"_miscdata.txt file successfully created in output folder")
 
