@@ -317,8 +317,33 @@ def create_obj(filename, vertices, indices=[]):
         # Write the group of the vertices
         if(v["group"] != curr_group):
 
-            #TODO temporary (print the first faces if this is group 1) One day I really need to burn this whole script in a fire and rewrite it from scratch
-            if(v["group"] == 1):
+            curr_group = v["group"]
+            line = "g group" + str( v["group"] ) + "\n"
+            obj.write(line)
+        # Write the vertex
+        line = "v " + str( v["values"][0] ) + " " + str( v["values"][1] ) + " " + str( v["values"][2] ) + "\n"
+        obj.write(line)
+
+    print(filename + ".obj was successfully created in output folder")
+    obj.close()
+
+
+
+
+def create_obj_that_has_indices(filename, vertices, indices=[]):
+    # Remove .rlg from the filename
+    filename = re.split(".rlg", filename)[0]
+    # Create file
+    obj = open("output/" +filename+ ".obj", "w")
+    curr_group = -1
+
+    # Now write the vertices
+    for v in vertices:
+        # Write the group of the vertices
+        if(v["group"] != curr_group):
+
+            #TODO trying to figure out how faces work (print the first faces if this is group 10)
+            if(v["group"] == 10):
                 for i in indices:
                     obj.write("f " +str(int.from_bytes(i[0], 'big'))+ "/" +str(int.from_bytes(i[1], 'big'))+ "/" +str(int.from_bytes(i[2], 'big')) )
                     obj.write(" " +str(int.from_bytes(i[3], 'big'))+ "/" +str(int.from_bytes(i[4], 'big'))+ "/" +str(int.from_bytes(i[5], 'big')) )
@@ -333,7 +358,6 @@ def create_obj(filename, vertices, indices=[]):
 
     print(filename + ".obj was successfully created in output folder")
     obj.close()
-
 
 
 
