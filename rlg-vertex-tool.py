@@ -338,24 +338,37 @@ def create_obj_that_has_indices(filename, vertices, indices=[]):
     curr_group = -1
 
     # Now write the vertices
-    for v in vertices:
+    for vertex_identifier, v in enumerate(vertices):
         # Write the group of the vertices
         if(v["group"] != curr_group):
 
             #TODO trying to figure out how faces work (print the first faces if this is group 10)
-            if(v["group"] == 10):
-                for i in indices:
-                    obj.write("f " +str(int.from_bytes(i[0], 'big'))+ "/" +str(int.from_bytes(i[1], 'big'))+ "/" +str(int.from_bytes(i[2], 'big')) )
-                    obj.write(" " +str(int.from_bytes(i[3], 'big'))+ "/" +str(int.from_bytes(i[4], 'big'))+ "/" +str(int.from_bytes(i[5], 'big')) )
-                    obj.write(" " +str(int.from_bytes(i[6], 'big'))+ "/" +str(int.from_bytes(i[7], 'big'))+ "/" +str(int.from_bytes(i[8], 'big')) + "\n" )
+            if(v["group"] == 11):
+                mesh_data = read_mesh_data(rlg)
+
+                index_array_start_offset = mesh_data[10]['index_start_offset']//2
+                index_count = mesh_data[10]['index_count']
+                index_end = (index_array_start_offset + index_count)
+
+                indices_of_this_mesh = indices[ index_array_start_offset : index_end ]
+                for i, index in enumerate( indices_of_this_mesh ):
+                    if( i%3 == 0 ):
+                        obj.write( "\nf" )
+                    obj.write( " " + str( index ) )
+                obj.write( "\n" )
+
 
             curr_group = v["group"]
             line = "g group" + str( v["group"] ) + "\n"
             obj.write(line)
+    
+            
         # Write the vertex
-        line = "v " + str( v["values"][0] ) + " " + str( v["values"][1] ) + " " + str( v["values"][2] ) + "\n"
-        obj.write(line)
+        if(v["group"] == 10):
+            line = "v " + str( v["values"][0] ) + " " + str( v["values"][1] ) + " " + str( v["values"][2] ) + "\n"
+            obj.write(line)
 
+        
     print(filename + ".obj was successfully created in output folder")
     obj.close()
 
@@ -504,8 +517,8 @@ def extract_rlg_vertices_to_multiple_obj_files_separate_by_group( rlg ):
 def extract_rlg_vertices_and_faces_to_obj_file( rlg ):
     vertex_attributes = read_vertex_attribute(rlg)
     vertices = get_vertices_from_rlg(rlg, vertex_attributes)
-    indices = get_indices_from_rlg(rlg)
-    create_obj(i, vertices, indices)
+    indices = read_index_data(rlg)
+    create_obj_that_has_indices(i, vertices, indices)
 
 
 
@@ -619,10 +632,10 @@ while True:
     mesh - print mesh data to txt file
     index - print index data to txt file
     
-    exit - Exit\n\n''')
+    x - Exit\n\n''')
 
     # Check if response is exit
-    if(r == "exit"):
+    if(r == "x"):
         exit()
 
     filenames = get_all_rlg_filenames()
