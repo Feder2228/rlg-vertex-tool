@@ -81,6 +81,9 @@ def get_all_rlg_filenames():
         filenames.append(file)
     return filenames
 
+def bytes_to_float(bytes):
+    return struct.unpack( '!f', bytes )[0]
+
 
 
 
@@ -104,56 +107,42 @@ def read_model_data(rlg):
 
 
 
-# Function to read the vertices of a rlg file
+# Function to read the vertices of a rlg file. Returns a list containing all the vertices
 def get_vertices_from_rlg( rlg, vertex_attributes ):
     
     # get section info
     section_info = rlg_get_section_info( rlg, SECTION_VERTEX_DATA )
     location = section_info[0]
-    section_size = section_info[2]
+
+    # in order to determine on which intervals we can find vertices, we need to scan the vertex attributes
+    # find the intervals
+    intervals = []
+    for i, instance in enumerate(vertex_attributes):
+        if( instance['0x4'] == VERTEX_ATTRIBUTE_TYPE_VERTEX ):
+            intervals.append({
+                'start': instance['offset'],
+                'end': vertex_attributes[i+1]['offset']
+            })
+    print( "DEBUG" + str(intervals) )
 
     # set up some variables for the loop
     start_of_data = location + 8
-    rlg.seek( start_of_data, 0 ) 
-    end_of_section = start_of_data + section_size
-    group = 0
-    type_prev = 0  # byte 0x4 of an instance of vertex attribute. (on previous iteration)
-    type = None    # byte 0x4 of an instance of vertex attribute
     a = []
 
-    # repeat until the section ends. Get all the vertices
-    while rlg.tell() < end_of_section:
+    # repeat for each interval: get all the vertices in the interval
+    for group, interval in enumerate(intervals):
+        rlg.seek( start_of_data + interval['start'] )
         current_byte = rlg.tell() - start_of_data
-        stride = 4
-
-        # get all instances of vertex attribute
-        for i, instance in enumerate(vertex_attributes):
-            if( instance['offset'] <= current_byte ):  # Find which offset this vertex corresponds to and get the associated data
-                stride = instance['stride']
-                type = instance['0x4']       
-                # print( "vertex_attribute=" + str(i) + " stride=" + str(stride) + " type=" + str(type) )   
-
-        # GROUP: keep track of group number. Increment it every time the type loops
-        if( type_prev == VERTEX_ATTRIBUTE_TYPE_THING_THAT_COMES_BEFORE_VERTEX and type == VERTEX_ATTRIBUTE_TYPE_VERTEX ):
-            group += 1
-
-        type_prev = type
-
-        # VALUE: save all the vertexes floats to an array
-        values = []
-        for i in range(0, stride//4):
-            bytes = rlg.read(4)
-            f = struct.unpack( '!f', bytes )[0]
-            values.append(f)
-
-        # append a vertex attribute instance to the array
-        if( type == VERTEX_ATTRIBUTE_TYPE_VERTEX ):
+        while current_byte < interval['end']:
             a.append( {
                 "offset" : current_byte,
-                "type" : type, 
+                "type" : VERTEX_ATTRIBUTE_TYPE_VERTEX, 
                 "group" : group,
-                "values" : values
+                "values" : [ bytes_to_float( rlg.read(4) ),  
+                             bytes_to_float( rlg.read(4) ), 
+                             bytes_to_float( rlg.read(4) ) ]
             } )
+            current_byte = rlg.tell() - start_of_data
 
     return a
 
