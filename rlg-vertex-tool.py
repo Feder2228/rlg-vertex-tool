@@ -192,7 +192,7 @@ def read_mesh_data(rlg, verbose = False):
     section_size = section_info[2]
 
     # go to where data starts
-    rlg.seek( location+4 , 0 )
+    rlg.seek( location+8 , 0 )
     start_of_data = rlg.tell()
 
     # read data
@@ -273,13 +273,15 @@ def read_index_data(rlg):
     section_size = section_info[2]
 
     # go to where data starts
-    rlg.seek( location + 4 ,0)
-    start_of_data = rlg.tell() 
+    start_of_data = location + 8
+    rlg.seek( start_of_data, 0 )
+    end_of_section = start_of_data + section_size
 
-    bytestr = b''
-
-    bytestr = rlg.read(section_size)
-    return bytestr
+    # read all indices and return a list containing them
+    indices = []
+    while rlg.tell() < end_of_section:
+        indices.append( int.from_bytes( rlg.read(2), 'big' ) )
+    return indices
 
 
 
@@ -287,61 +289,32 @@ def read_index_data(rlg):
 def read_index_data_and_group_by_mesh(rlg):
     data = []
     read_model_data(rlg)
-    filename = os.path.basename(rlg.name)
+    
     # Read data
     mesh_data = read_mesh_data(rlg, True)
     index_data = read_index_data(rlg)
     vertex_attribute = read_vertex_attribute(rlg)
-    # Create text file
-    txt = open("output/" +filename+ "_miscdata.txt", "w")
 
     # Loop 
-    for m in range(0, len(mesh_data)):
-
-        # Mesh data
-        txt.write("================================ MESH " +str(m)+ ": ================================\n")
-        for i in mesh_data[m]:
-            txt.write( str(i) + " : " +str(mesh_data[m].get(i))+ "\n")
+    for i, m in enumerate(mesh_data):
 
         # Vertex attributes of mesh
-        txt.write("----------------------------------------------------------------\n")
-        txt.write("VERTEX ATTRIBUTES: \n")
-        mesh_vertex_attributes = vertex_attribute[10*m:10*(m+1)]
-        for i in mesh_vertex_attributes:
-            txt.write( str(i) + "\n")
-
-        # Vertices of mesh
-        txt.write("----------------------------------------------------------------\n")
-        txt.write("VERTICES: \n")
-        vertices = get_vertices_from_rlg(rlg, mesh_vertex_attributes)
-        for i in vertices:
-            # Number of the vertex inside the mesh
-            vertex_number = hex( ( i["offset"] - mesh_vertex_attributes[0]["offset"] ) // 12 )
-            txt.write( "Offset: " +hex(i["offset"])+ " (Num: " +vertex_number+ ") Coordinates: " +str(i["values"])+ "\n")
+        mesh_vertex_attributes = vertex_attribute[10*i:10*(i+1)]  # get the 10 instances of vertex_attribute that (I think) are associated with this mesh
         
         # Index data
-        txt.write("----------------------------------------------------------------\n")
-        txt.write("INDEX DATA: \n")
-        index_data_end = mesh_data[m]['index_start_offset'] + ( (mesh_data[m]['index_count']) * 2 )
+        index_data_end = m['index_start_offset'] + ( (m['index_count']) * 2 )
         mesh_index_data = []
-        for i in range(mesh_data[m]['index_start_offset'], index_data_end): 
-            mesh_index_data.append( index_data[i] )
-            txt.write( byte_hex( index_data[i]) )
-            if(i%2 == 1):
-                txt.write(" ")
-            if(i%24 == 23):
-                txt.write("\n")
-        txt.write("\n\n\n\n\n\n")
+        for j in range( m['index_start_offset']//2, index_data_end//2 ): 
+            print( "DEBUG:" + str(i) + ", " + str(j) )
+            mesh_index_data.append( index_data[j] )
 
         # Add data to array
         data.append({
-            "mesh_data" : mesh_data,
+            "mesh_data" : m,
             "index_data" : mesh_index_data,
             "vertex_attribute" : mesh_vertex_attributes,
-            "vertices" : vertices
+            "vertices" : get_vertices_from_rlg(rlg, mesh_vertex_attributes)
         })
-    print(filename+"_miscdata.txt file successfully created in output folder")
-    txt.close()
     return data
 
 
@@ -529,6 +502,28 @@ def extract_rlg_vertices_and_faces_to_obj_file( rlg ):
 
 
 # FUNCTIONS THAT PRINT DATA TO TXT FILE
+def print_misc_data_to_file(rlg):
+    filename = os.path.basename(rlg.name)
+    data = read_index_data_and_group_by_mesh(rlg)
+    txt = open("output/" +filename+ "_miscdata.txt", "w")
+    for i, d in enumerate(data):
+        txt.write( "data[" +str(i)+ "]\n" )
+        txt.write( "\nMESH DATA:\n" )
+        txt.write( str( d['mesh_data'] ) + "\n" )
+        txt.write( "\nINDEX DATA:\n" )
+        for e in d['index_data']:
+            txt.write( str(e) + " " )
+        txt.write( "\n\nVERTEX ATTRIBUTE:\n" )
+        for e in d['vertex_attribute']:
+            txt.write( str(e) + "\n" )
+        txt.write( "\nVERTICES:\n" )
+        for e in d['vertices']:
+            txt.write( str(e) + "\n" )
+        txt.write("\n\n\n\n\n\n\n\n")
+    txt.close()
+    print(filename+"_miscdata.txt file successfully created in output folder")
+
+
 def print_vertex_attributes_to_file(rlg):
     # Read vertex attributes
     vertex_attribute = read_vertex_attribute(rlg)
@@ -630,7 +625,7 @@ while True:
             print_index_data_to_file(rlg)
             
         elif(r == "data" or r == "d"):
-            read_index_data_and_group_by_mesh(rlg)
+            print_misc_data_to_file(rlg)
 
         else:
             print("invalid input")
