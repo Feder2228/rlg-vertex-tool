@@ -200,8 +200,7 @@ def read_mesh_data(rlg, verbose = False):
     while rlg.tell() < start_of_data+section_size:  # TODO: edit the condition to make it more readable
         index_start_offset = int.from_bytes( rlg.read(4), "big" )
         index_flags = int.from_bytes( rlg.read(4), "big" )
-        face_type = int.from_bytes( rlg.read(1), "big" )
-        attribute_count = int.from_bytes( rlg.read(1), "big" )
+        vertex_count = int.from_bytes( rlg.read(2), "big" )
         unknown_0x0a = int.from_bytes( rlg.read(4), "big" )
         material_hash_id = int.from_bytes( rlg.read(4), "big" )
         mesh_hash_id = int.from_bytes( rlg.read(4), "big" )
@@ -212,13 +211,11 @@ def read_mesh_data(rlg, verbose = False):
         unknown_0x26 = int.from_bytes( rlg.read(4), "big" )
         unknown_0x2a = int.from_bytes( rlg.read(6), "big" )
 
-        if(verbose):
-            a.append( { 
+        a.append( { 
                 "index_start_offset" : index_start_offset,
                 "index_count" : index_flags & 0xffffff,
                 "index_format" : index_flags >> 24,
-                "face_type" : face_type,
-                "attribute_count" : attribute_count,
+                "vertex_count" : hex(vertex_count),
                 "0x0a" : unknown_0x0a,
                 "material_hash_id" : material_hash_id,
                 "0x16" : unknown_0x16,
@@ -228,20 +225,8 @@ def read_mesh_data(rlg, verbose = False):
                 "0x22" : unknown_0x22,
                 "0x26" : unknown_0x26,
                 "0x2a" : unknown_0x2a,
-            }   
-            )
-        else:
-            a.append( {  # TODO: redundant code?
-                "index_start_offset" : index_start_offset,
-                "index_count" : index_flags & 0xffffff,
-                "index_format" : index_flags >> 24,
-                "face_type" : face_type,
-                "attribute_count" : attribute_count,
-                "material_hash_id" : material_hash_id,
-                "mesh_hash_id" : mesh_hash_id,
-                "material_offset" : material_offset,
-            }   
-            )
+            } )
+  
     return a
     
 
