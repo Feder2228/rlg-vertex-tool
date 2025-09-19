@@ -442,7 +442,7 @@ def create_obj_for_each_group(filename, vertices):
 
 
 
-def read_obj(filename):
+def get_vertices_from_obj(filename):
     print("filename: " +filename)
     obj = open("obj/" + filename + ".obj", "r")
     # find the file size
@@ -461,6 +461,9 @@ def read_obj(filename):
     for i in data:
         # If first character of row is not v, ignore the whole row
         if(i != 'v' and column == 0):
+            ignore = True
+        # If second character of row is not whitespace, ignore the whole row
+        if(i != ' ' and column == 1):
             ignore = True
         # If current character is a comment ignore until new line
         if(i == '#'):
@@ -498,7 +501,7 @@ def generate_new_rlg(original_rlg):
 
     # Get the data from both the rlg and the obj
     try:
-        new_vertices = read_obj(filename)
+        new_vertices = get_vertices_from_obj(filename)
     except:
         print("Error: .obj file not found")
         return
