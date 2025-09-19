@@ -130,6 +130,33 @@ def get_vertices_from_rlg( rlg, vertex_attributes ):
 
 
 
+def get_vertices_from_rlg_split_by_group( rlg ):
+
+    vertices = get_vertices_from_rlg( rlg, read_vertex_attribute(rlg) )
+    return split_vertices_by_group( vertices )
+    
+
+
+
+def split_vertices_by_group( vertices ):
+
+    vertices_by_group = []
+    group = []
+
+    for i, v in enumerate( vertices ):
+
+        group.append( v )
+
+        # if this is last vertex of a group, put the group into the "vertices_by_group" list
+        if( i >= len(vertices)-1 or vertices[i+1]['group'] != v['group'] ):
+            vertices_by_group.append( group )
+            group = []
+
+    return vertices_by_group
+
+
+
+
 # returns an array of dicts. Each dict is a vertex attribute instance
 def read_vertex_attribute(rlg):
     
@@ -335,42 +362,57 @@ def create_obj_that_has_indices(filename, vertices, indices=[]):
     filename = re.split(".rlg", filename)[0]
     # Create file
     obj = open("output/" +filename+ ".obj", "w")
-    curr_group = -1
 
-    # Now write the vertices
-    for vertex_identifier, v in enumerate(vertices):
-        # Write the group of the vertices
-        if(v["group"] != curr_group):
+    vertices_by_group = split_vertices_by_group( vertices )
 
-            #TODO trying to figure out how faces work (print the first faces if this is group 10)
-            if(v["group"] == 11):
-                mesh_data = read_mesh_data(rlg)
+    mesh_data = read_mesh_data(rlg)
 
-                index_array_start_offset = mesh_data[10]['index_start_offset']//2
-                index_count = mesh_data[10]['index_count']
-                index_end = (index_array_start_offset + index_count)
+    first_vertex_identifier_of_group = 0
 
-                indices_of_this_mesh = indices[ index_array_start_offset : index_end ]
-                for i, index in enumerate( indices_of_this_mesh ):
-                    if( i%3 == 0 ):
-                        obj.write( "\nf" )
-                    obj.write( " " + str( index ) )
-                obj.write( "\n" )
+    for group, vertices in enumerate( vertices_by_group ):
 
+        # Write the number of group
+        obj.write( "g group " + str( group ) + "\n" )
 
-            curr_group = v["group"]
-            line = "g group" + str( v["group"] ) + "\n"
-            obj.write(line)
-    
-            
-        # Write the vertex
-        if(v["group"] == 10):
-            line = "v " + str( v["values"][0] ) + " " + str( v["values"][1] ) + " " + str( v["values"][2] ) + "\n"
-            obj.write(line)
-
+        # Write the vertices of the group
+        for vertex in vertices:
+            obj.write( "v " + str( vertex["values"][0] ) + " " + str( vertex["values"][1] ) + " " + str( vertex["values"][2] ) + "\n" )
         
+
+        # Write the faces of this group 
+        index_array_start_offset = mesh_data[group]['index_start_offset']//2
+        index_count = mesh_data[group]['index_count']
+        index_end = (index_array_start_offset + index_count)
+
+        indices_of_this_group = indices[ index_array_start_offset : index_end ]
+        tri = []
+
+        print( "DEBUG g=" + str(group) + " indices=" + str(len(indices_of_this_group)) )
+
+        for i, index in enumerate( indices_of_this_group ):
+
+            if( i < 2 ):
+                continue
+            
+            # check if three adjacent indices are all different
+            tri = indices_of_this_group[ (i - 2) : (i + 1) ]
+            if( tri[0] != tri[1] and tri[1] != tri[2] and tri[0] != tri[2] ):
+                # write face
+                obj.write( "f " )      
+                for tri_index in tri:    
+                    absolute_index = first_vertex_identifier_of_group + tri_index + 1
+                    obj.write( str( absolute_index ) + " " )
+                obj.write( "\n" )
+        
+
+        # Update the vertex counter
+        print( "DEBUG g=" + str(group) + " first_v_id=" + str(first_vertex_identifier_of_group) + "\n" )
+        first_vertex_identifier_of_group += len(vertices)
+
+
     print(filename + ".obj was successfully created in output folder")
     obj.close()
+
 
 
 
@@ -622,8 +664,9 @@ while True:
     r = input('''\n\n-- Select a command --
               
     COMMANDS FOR EXPORTING/IMPORTING FILES:
-    e - Extract vertices from rlg file
-    g - Generate new rlg (by starting from an original rlg and replacing its vertices with the ones of an obj)
+    e - Extract vertices and faces from .rlg file and save them in .obj format
+    ev - Extract only vertices from .rlg file and save them in .obj format
+    g - Generate new .rlg (by starting from an original .rlg and replacing its vertices with the ones of an obj)
               
     DEV STUFF:
     es - Extract vertices from rlg file and put them in separate OBJs (by group) (for dev purposes only. Those objs won't be useful to recreate an .rlg file)
@@ -645,11 +688,11 @@ while True:
         rlg = open("rlg/" + i, "rb")
         print("\n================================================================")
 
-        if(r == "e"):
+        if(r == "ev"):
             extract_rlg_vertices_to_obj_file( rlg )
 
         #TODO test
-        elif(r == "palle"):
+        elif(r == "e"):
             extract_rlg_vertices_and_faces_to_obj_file( rlg )
 
         elif(r == "g"):
