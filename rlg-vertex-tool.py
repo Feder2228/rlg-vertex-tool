@@ -377,7 +377,7 @@ def get_rlg_dict(rlg):
 
 
 
-def create_obj(filename, vertices, indices=[]):
+def create_obj_legacy(filename, vertices, indices=[]):
     # Remove .rlg from the filename
     filename = re.split(".rlg", filename)[0]
     # Create file
@@ -402,57 +402,43 @@ def create_obj(filename, vertices, indices=[]):
 
 
 
-def create_obj_that_has_indices(filename, vertices, indices=[]):
-    # Remove .rlg from the filename
-    filename = re.split(".rlg", filename)[0]
-    # Create file
+def create_obj(rlg):
+
+    # take the filename, but remove the ".rlg" part
+    filename = os.path.basename( rlg.name ).split(".")[0]
+    # create the file
     obj = open("output/" +filename+ ".obj", "w")
 
-    vertices_by_group = split_vertices_by_group( vertices )
+    rlg_dict = get_rlg_dict( rlg )
 
-    mesh_data = get_mesh_data_from_rlg(rlg)
 
-    first_vertex_identifier_of_group = 0
-
-    for group, vertices in enumerate( vertices_by_group ):
+    for group, group_data in enumerate( rlg_dict ):
 
         # Write the number of group
         obj.write( "g group " + str( group ) + "\n" )
 
-        # Write the vertices of the group
-        for vertex in vertices:
+        # Write the vertices of this group. In the .obj format, each vertex is a "v" follwed by the XYZ coordinates
+        for vertex in group_data['vertices']: 
             obj.write( "v " + str( vertex["values"][0] ) + " " + str( vertex["values"][1] ) + " " + str( vertex["values"][2] ) + "\n" )
         
 
         # Write the faces of this group 
-        index_array_start_offset = mesh_data[group]['index_start_offset']//2
-        index_count = mesh_data[group]['index_count']
-        index_end = (index_array_start_offset + index_count)
+        first_vertex_identifier_of_group = group_data['vertices'][0]['absolute_id']  
 
-        indices_of_this_group = indices[ index_array_start_offset : index_end ]
-        tri = []
+        for face in group_data['faces']:
 
-        print( "DEBUG g=" + str(group) + " indices=" + str(len(indices_of_this_group)) )
+            obj.write( "f " )  # write "f", which identifies a face in a .obj file    
 
-        for i, index in enumerate( indices_of_this_group ):
+            for relative_index in face:  # write the IDs of the vertices that make up the face
 
-            if( i < 2 ):
-                continue
-            
-            # check if three adjacent indices are all different
-            tri = indices_of_this_group[ (i - 2) : (i + 1) ]
-            if( tri[0] != tri[1] and tri[1] != tri[2] and tri[0] != tri[2] ):
-                # write face
-                obj.write( "f " )      
-                for tri_index in tri:    
-                    absolute_index = first_vertex_identifier_of_group + tri_index + 1
-                    obj.write( str( absolute_index ) + " " )
-                obj.write( "\n" )
-        
+                # unlike for .rlg, in a .obj file, the IDs of the vertices aren't relative to their group (they don't reset on each group), so we must convert to absolute_index
+                # also in a .obj file the first vertex has an ID of 1 (instead of 0 like .rlg), so we must add 1
+                absolute_index = first_vertex_identifier_of_group + relative_index + 1  
+                obj.write( str( absolute_index ) + " " )
 
-        # Update the vertex counter
+            obj.write( "\n" )
+
         print( "DEBUG g=" + str(group) + " first_v_id=" + str(first_vertex_identifier_of_group) + "\n" )
-        first_vertex_identifier_of_group += len(vertices)
 
 
     print(filename + ".obj was successfully created in output folder")
@@ -592,7 +578,7 @@ def generate_new_rlg(original_rlg):
 def extract_rlg_vertices_to_obj_file( rlg ):
     vertex_attributes = get_vertex_attributes_from_rlg(rlg)
     vertices = get_vertices_from_rlg(rlg, vertex_attributes)
-    create_obj(i, vertices)
+    create_obj_legacy(i, vertices)
 
 
 # Function to convert a .rlg file to multiple .obj that only contains vertices. Each obj is a group
@@ -608,7 +594,7 @@ def extract_rlg_vertices_and_faces_to_obj_file( rlg ):
     vertex_attributes = get_vertex_attributes_from_rlg(rlg)
     vertices = get_vertices_from_rlg(rlg, vertex_attributes)
     indices = get_index_data_from_rlg(rlg)
-    create_obj_that_has_indices(i, vertices, indices)
+    create_obj(rlg)
 
 
 
