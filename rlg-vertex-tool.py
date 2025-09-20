@@ -17,7 +17,15 @@ SECTION_MATERIAL_DATA = b'\x00\x01\xb0\x16'
 
 # VERTEX ATTRIBUTE CONSTANTS
 VERTEX_ATTRIBUTE_TYPE_VERTEX = 0x67
-VERTEX_ATTRIBUTE_TYPE_THING_THAT_COMES_BEFORE_VERTEX = 0xb0
+VERTEX_ATTRIBUTE_TYPE_2 = 0xfe
+VERTEX_ATTRIBUTE_TYPE_3 = 0xcc
+VERTEX_ATTRIBUTE_TYPE_4 = 0xed
+VERTEX_ATTRIBUTE_TYPE_5 = 0x52
+VERTEX_ATTRIBUTE_TYPE_6 = 0xc0
+VERTEX_ATTRIBUTE_TYPE_7 = 0xd6
+VERTEX_ATTRIBUTE_TYPE_8 = 0xd7
+VERTEX_ATTRIBUTE_TYPE_9 = 0xd4
+VERTEX_ATTRIBUTE_TYPE_10 = 0xb0
 
 
 # RLG UTILITY FUNCTIONS
@@ -99,7 +107,7 @@ def get_vertices_from_rlg( rlg, vertex_attributes ):
     # find the intervals
     intervals = []
     for i, instance in enumerate(vertex_attributes):
-        if( instance['0x4'] == VERTEX_ATTRIBUTE_TYPE_VERTEX ):
+        if( instance['type'] == VERTEX_ATTRIBUTE_TYPE_VERTEX ):
             intervals.append({
                 'start': instance['offset'],
                 'end': vertex_attributes[i+1]['offset']
@@ -109,13 +117,21 @@ def get_vertices_from_rlg( rlg, vertex_attributes ):
     # set up some variables for the loop
     start_of_data = location + 8
     a = []
+    absolute_id = 0
 
     # repeat for each interval: get all the vertices in the interval
     for group, interval in enumerate(intervals):
+
         rlg.seek( start_of_data + interval['start'] )
         current_byte = rlg.tell() - start_of_data
+
+        relative_id = 0
+
         while current_byte < interval['end']:
+
             a.append( {
+                "absolute_id" : absolute_id,       # id
+                "relavtive_id" : relative_id,      # id (relative to the start of the group)
                 "offset" : current_byte,
                 "type" : VERTEX_ATTRIBUTE_TYPE_VERTEX, 
                 "group" : group,
@@ -123,20 +139,20 @@ def get_vertices_from_rlg( rlg, vertex_attributes ):
                              bytes_to_float( rlg.read(4) ), 
                              bytes_to_float( rlg.read(4) ) ]
             } )
+
             current_byte = rlg.tell() - start_of_data
+
+            absolute_id += 1
+            relative_id += 1
 
     return a
 
 
-
-
 def get_vertices_from_rlg_split_by_group( rlg ):
 
-    vertices = get_vertices_from_rlg( rlg, read_vertex_attribute(rlg) )
+    vertices = get_vertices_from_rlg( rlg, get_vertex_attributes_from_rlg(rlg) )
     return split_vertices_by_group( vertices )
     
-
-
 
 def split_vertices_by_group( vertices ):
 
@@ -158,7 +174,7 @@ def split_vertices_by_group( vertices ):
 
 
 # returns an array of dicts. Each dict is a vertex attribute instance
-def read_vertex_attribute(rlg):
+def get_vertex_attributes_from_rlg(rlg):
     
     section_info = rlg_get_section_info( rlg, SECTION_VERTEX_ATTRIBUTES )
     location = section_info[0]
@@ -169,21 +185,46 @@ def read_vertex_attribute(rlg):
     rlg.seek( start_of_data ,0)
     a = []
     end_of_section = start_of_data + section_size
+    group = -1
 
     # read data
     while rlg.tell() < end_of_section: 
+
         offset = int.from_bytes( rlg.read(4), "big" )
-        unknown_0x4 = int.from_bytes( rlg.read(1), "big" )
+        type = int.from_bytes( rlg.read(1), "big" )
         stride = int.from_bytes( rlg.read(1), "big" )
         unknown_0x6 = int.from_bytes( rlg.read(2), "big" )
 
+        if( type == VERTEX_ATTRIBUTE_TYPE_VERTEX ):
+            group += 1
+
         a.append( {
+            "group" : group,
             "offset" : offset,
-            "0x4" : unknown_0x4, # 67 fe cc ed 52 c0 d6 d7 d4 b0
+            "type" : type,         # types are ordered like this: 67 fe cc ed 52 c0 d6 d7 d4 b0
             "stride" : stride,
             "0x6" : unknown_0x6
         } )
     return a
+
+
+def get_vertex_attributes_from_rlg_split_by_group(rlg):
+    
+    vertex_attributes = get_vertex_attributes_from_rlg( rlg )
+
+    vertex_attributes_by_group = []
+    group = []
+
+    for i, v in enumerate( vertex_attributes ):
+
+        group.append( v )
+
+        # if this is last vertex of a group, put the group into the "vertex_attributes_by_group" list
+        if( i >= len(vertex_attributes)-1 or vertex_attributes[i+1]['group'] != v['group'] ):
+            vertex_attributes_by_group.append( group )
+            group = []
+
+    return vertex_attributes_by_group
 
 
 
@@ -208,7 +249,7 @@ def read_model_data(rlg):
 
 
 
-def read_mesh_data(rlg, verbose = False):
+def get_mesh_data_from_rlg(rlg):
 
     # get the filename and strip the extention
     filename = os.path.basename(rlg.name)
@@ -259,33 +300,14 @@ def read_mesh_data(rlg, verbose = False):
 
 
 
-#TODO remove this garbage
-def get_indices_from_rlg(rlg):
-
-    section_info = rlg_get_section_info( rlg, SECTION_INDEX_DATA )
-    location = section_info[0]
-
-    rlg.seek( location+8 , 0 )
-
-    a = []
-    for i in range(8): #TODO range(4) is temporary. replace it with length of section
-        a.append( [rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2), rlg.read(2)] )
-    return a
-
-
-
-
-def read_index_data(rlg):
-
-    filename = os.path.basename(rlg.name)  # TODO: this message doesn't have to be here
-    print("Reading index data of: " +filename)
+# Read data from index section. Return a list of all indices
+def get_index_data_from_rlg(rlg):
     
     section_info = rlg_get_section_info( rlg, SECTION_INDEX_DATA )
-    location = section_info[0]
     section_size = section_info[2]
 
     # go to where data starts
-    start_of_data = location + 8
+    start_of_data = section_info[0] + 8
     rlg.seek( start_of_data, 0 )
     end_of_section = start_of_data + section_size
 
@@ -298,34 +320,57 @@ def read_index_data(rlg):
 
 
 
-def read_index_data_and_group_by_mesh(rlg):
+# Get a dict with various data from an rlg file
+# Still WIP. Currently structured like this:
+# List of dicts. Each dict contains data of a mesh. mesh_data, index_data, vertex_attributes, vertices, faces
+# For more info look at the comments next to the last "append" in this function
+def get_rlg_dict(rlg):
+
     data = []
-    read_model_data(rlg)
+    read_model_data(rlg)   # TODO ???
     
     # Read data
-    mesh_data = read_mesh_data(rlg, True)
-    index_data = read_index_data(rlg)
-    vertex_attribute = read_vertex_attribute(rlg)
+    mesh_data = get_mesh_data_from_rlg(rlg)
+    index_data = get_index_data_from_rlg(rlg)
+    vertex_attributes = get_vertex_attributes_from_rlg_split_by_group(rlg)
+    vertices = get_vertices_from_rlg_split_by_group(rlg)
 
-    # Loop 
+
+    # Loop through groups
     for i, m in enumerate(mesh_data):
 
-        # Vertex attributes of mesh
-        mesh_vertex_attributes = vertex_attribute[10*i:10*(i+1)]  # get the 10 instances of vertex_attribute that (I think) are associated with this mesh
-        
-        # Index data
+        # Split index data by group
         index_data_end = m['index_start_offset'] + ( (m['index_count']) * 2 )
-        mesh_index_data = []
+        index_data_of_this_mesh = []
+
         for j in range( m['index_start_offset']//2, index_data_end//2 ): 
+
             print( "DEBUG:" + str(i) + ", " + str(j) )
-            mesh_index_data.append( index_data[j] )
+            index_data_of_this_mesh.append( index_data[j] )
+
+
+        # Faces
+        faces_of_this_mesh = []
+
+        for j, index in enumerate( index_data_of_this_mesh ):
+
+            if( j < 2 ):
+                continue
+            
+            # check if three adjacent indices are all different. If so, that's a face
+            tri = index_data_of_this_mesh[ (j - 2) : (j + 1) ]
+            if( tri[0] != tri[1] and tri[1] != tri[2] and tri[0] != tri[2] ):
+
+                faces_of_this_mesh.append( tri )
+
 
         # Add data to array
         data.append({
-            "mesh_data" : m,
-            "index_data" : mesh_index_data,
-            "vertex_attribute" : mesh_vertex_attributes,
-            "vertices" : get_vertices_from_rlg(rlg, mesh_vertex_attributes)
+            "mesh_data" : m,                                    # raw mesh data
+            "index_data" : index_data_of_this_mesh,             # raw index data (0 based, vertex ids are relative to beginning of mesh/group)
+            "vertex_attribute" : vertex_attributes[ i ],        # raw vertex attribute data
+            "vertices" : vertices[ i ],                         # processed vertices
+            "faces" : faces_of_this_mesh                        # processed faces (0 based, vertex ids are relative to beginning of mesh/group)
         })
     return data
 
@@ -365,7 +410,7 @@ def create_obj_that_has_indices(filename, vertices, indices=[]):
 
     vertices_by_group = split_vertices_by_group( vertices )
 
-    mesh_data = read_mesh_data(rlg)
+    mesh_data = get_mesh_data_from_rlg(rlg)
 
     first_vertex_identifier_of_group = 0
 
@@ -507,7 +552,7 @@ def generate_new_rlg(original_rlg):
         return
     
     # check if files have the same amount of vertices. Throw a warning if not
-    old_vertices = get_vertices_from_rlg( original_rlg, read_vertex_attribute(original_rlg) )
+    old_vertices = get_vertices_from_rlg( original_rlg, get_vertex_attributes_from_rlg(original_rlg) )
     print("Found " + str(len(new_vertices)) + " Vertices in given obj file")
     print("Found " + str(len(old_vertices)) + " Vertices in given rlg file")
     if( len(new_vertices) != len(old_vertices)):
@@ -545,14 +590,14 @@ def generate_new_rlg(original_rlg):
 # PROCEDURES FOR CONVERTING FILES
 # Function to convert a .rlg file to .obj that only contains vertices.
 def extract_rlg_vertices_to_obj_file( rlg ):
-    vertex_attributes = read_vertex_attribute(rlg)
+    vertex_attributes = get_vertex_attributes_from_rlg(rlg)
     vertices = get_vertices_from_rlg(rlg, vertex_attributes)
     create_obj(i, vertices)
 
 
 # Function to convert a .rlg file to multiple .obj that only contains vertices. Each obj is a group
 def extract_rlg_vertices_to_multiple_obj_files_separate_by_group( rlg ):
-    vertex_attributes = read_vertex_attribute(rlg)
+    vertex_attributes = get_vertex_attributes_from_rlg(rlg)
     vertices = get_vertices_from_rlg(rlg, vertex_attributes)
     create_obj_for_each_group(i, vertices)
     rlg.close()
@@ -560,9 +605,9 @@ def extract_rlg_vertices_to_multiple_obj_files_separate_by_group( rlg ):
 
 # WIP function to convert a .rlg file to .obj that contains vertices and faces.
 def extract_rlg_vertices_and_faces_to_obj_file( rlg ):
-    vertex_attributes = read_vertex_attribute(rlg)
+    vertex_attributes = get_vertex_attributes_from_rlg(rlg)
     vertices = get_vertices_from_rlg(rlg, vertex_attributes)
-    indices = read_index_data(rlg)
+    indices = get_index_data_from_rlg(rlg)
     create_obj_that_has_indices(i, vertices, indices)
 
 
@@ -572,7 +617,7 @@ def extract_rlg_vertices_and_faces_to_obj_file( rlg ):
 def print_misc_data_to_file(rlg):
 
     filename = os.path.basename(rlg.name)
-    data = read_index_data_and_group_by_mesh(rlg)
+    data = get_rlg_dict(rlg)
 
     txt = open("output/" +filename+ "_miscdata.txt", "w")
 
@@ -606,6 +651,10 @@ def print_misc_data_to_file(rlg):
             vertex_id += 1
             txt.write( str( e['values'] ) )
             txt.write( "\n" )
+
+        txt.write( "\n\nFACES:\n" )
+        for e in d['faces']:
+            txt.write( str(e) + "\n" )
         txt.write("\n\n\n\n\n\n\n\n")
 
     txt.close()
@@ -614,7 +663,7 @@ def print_misc_data_to_file(rlg):
 
 def print_vertex_attributes_to_file(rlg):
     # Read vertex attributes
-    vertex_attribute = read_vertex_attribute(rlg)
+    vertex_attribute = get_vertex_attributes_from_rlg(rlg)
     for a in vertex_attribute:
         print(a)
     # Print vertex attribute on text file
@@ -630,7 +679,7 @@ def print_vertex_attributes_to_file(rlg):
 
 def print_mesh_data_to_file(rlg):
     # Read mesh data
-    mesh_data = read_mesh_data(rlg, True)
+    mesh_data = get_mesh_data_from_rlg(rlg)
     for m in mesh_data:
         print(m)
     rlg.close()
@@ -647,7 +696,7 @@ def print_mesh_data_to_file(rlg):
 
 def print_index_data_to_file(rlg):
     # Read index data
-    bytestr = read_index_data(rlg)
+    bytestr = get_index_data_from_rlg(rlg)
     rlg.close()
     # Print index data on text file
     txt = open("output/" +i+ "_indexdata.txt", "w")
