@@ -27,6 +27,35 @@ VERTEX_ATTRIBUTE_TYPE_8 = 0xd7
 VERTEX_ATTRIBUTE_TYPE_9 = 0xd4
 VERTEX_ATTRIBUTE_TYPE_10 = 0xb0
 
+# PROMPT STRINGS
+PROMPT_STR_BASE_COMMANDS = '''-- Select a command --
+    e - extract data from .rlg (save as .obj)
+    g - generate new .rlg (use original .rlg plus a modified .obj)
+    x - exit
+    help - more info      
+'''
+PROMPT_STR_HELP = '''
+    REGULAR COMMANDS:
+
+    e
+    Takes all the .rlg files it finds in the "rlg" folder, reads their data, then for each of them it creates a .obj file containing the vertices and faces (separated by group).
+    For 3D model mods, import this .obj file in a program like blender, move the vertices around (but do NOT add/remove any!), then export it and save it to the obj folder, than use the g command
+    
+    g
+    Takes all the .rlg files it finds in the "rlg" folder and for each of them it searches the "obj" folder for an .obj file that has the same name.
+    For each file it finds the .obj of, it reads the vertices of the .obj and overwrites the .rlg's vertices with those.
+    (Saves the modified .rlg as a copy in the "output" folder. The original .rlg won't be modified)
+              
+    
+    DEV COMMANDS:
+
+    es 
+    Same as "e" command, but each group (mesh) is saved in a different .obj file (for dev purposes only. Those objs can't be used to recreate an .rlg file)
+
+    d
+    Create a .txt file containing various data about each group (mesh) of the .rlg file. The .txt will be saved in the "output" folder.
+'''
+
 
 # RLG UTILITY FUNCTIONS
 def rlg_get_size(rlg):
@@ -377,31 +406,6 @@ def get_rlg_dict(rlg):
 
 
 
-def create_obj_legacy(filename, vertices, indices=[]):
-    # Remove .rlg from the filename
-    filename = re.split(".rlg", filename)[0]
-    # Create file
-    obj = open("output/" +filename+ ".obj", "w")
-    curr_group = -1
-
-    # Now write the vertices
-    for v in vertices:
-        # Write the group of the vertices
-        if(v["group"] != curr_group):
-
-            curr_group = v["group"]
-            line = "g group" + str( v["group"] ) + "\n"
-            obj.write(line)
-        # Write the vertex
-        line = "v " + str( v["values"][0] ) + " " + str( v["values"][1] ) + " " + str( v["values"][2] ) + "\n"
-        obj.write(line)
-
-    print(filename + ".obj was successfully created in output folder")
-    obj.close()
-
-
-
-
 # Create obj file, given an rlg file
 def create_obj( rlg, split_files_by_group = False ):
 
@@ -568,25 +572,6 @@ def generate_new_rlg(original_rlg):
 
 
 
-# PROCEDURES FOR CONVERTING FILES
-# Function to convert a .rlg file to .obj that only contains vertices.
-def extract_rlg_vertices_to_obj_file( rlg ):
-    vertex_attributes = get_vertex_attributes_from_rlg(rlg)
-    vertices = get_vertices_from_rlg(rlg, vertex_attributes)
-    create_obj_legacy(i, vertices)
-
-
-# Function to convert a .rlg file to multiple .obj that only contains vertices. Each obj is a group
-def extract_rlg_vertices_to_multiple_obj_files_separate_by_group( rlg ):
-    create_obj( rlg, split_files_by_group=True )
-
-
-# WIP function to convert a .rlg file to .obj that contains vertices and faces.
-def extract_rlg_vertices_and_faces_to_obj_file( rlg ):
-    create_obj(rlg)
-
-
-
 
 # FUNCTIONS THAT PRINT DATA TO TXT FILE
 def print_misc_data_to_file(rlg):
@@ -636,114 +621,48 @@ def print_misc_data_to_file(rlg):
     print(filename+"_miscdata.txt file successfully created in output folder")
 
 
-def print_vertex_attributes_to_file(rlg):
-    # Read vertex attributes
-    vertex_attribute = get_vertex_attributes_from_rlg(rlg)
-    for a in vertex_attribute:
-        print(a)
-    # Print vertex attribute on text file
-    txt = open("output/" +i+ "_vertexattribute.txt", "w")
-    txt.write( str(len(vertex_attribute)) +" attributes found\n\n")
-    for a in vertex_attribute:
-        for j in a:
-            txt.write( j +" : "+ hex(a.get(j)) )
-            txt.write("\n")
-        txt.write("------------------------------------------------\n")
-    txt.close
-
-
-def print_mesh_data_to_file(rlg):
-    # Read mesh data
-    mesh_data = get_mesh_data_from_rlg(rlg)
-    for m in mesh_data:
-        print(m)
-    rlg.close()
-    # Print mesh data on text file
-    txt = open("output/" +i+ "_meshdata.txt", "w")
-    txt.write( str(len(mesh_data)) +" mesh data found\n\n")
-    for m in mesh_data:
-        for j in m:
-            txt.write( j +" : "+ hex(m.get(j)) )
-            txt.write("\n")
-        txt.write("------------------------------------------------\n")
-    txt.close
-
-
-def print_index_data_to_file(rlg):
-    # Read index data
-    bytestr = get_index_data_from_rlg(rlg)
-    rlg.close()
-    # Print index data on text file
-    txt = open("output/" +i+ "_indexdata.txt", "w")
-    string = byte_hex_str(bytestr)
-    for j in range(0, len(string)):
-        txt.write(string[j])
-        if(j%12 == 11):
-            txt.write("\n")
-    txt.close()
-    print("Created txt file containing index data of " +i+ " in output folder")
-
-
-
 
 # START OF CODE
 while True:
-    r = input('''\n\n-- Select a command --
-              
-    COMMANDS FOR EXPORTING/IMPORTING FILES:
-    e - Extract vertices and faces from .rlg file and save them in .obj format
-    ev - Extract only vertices from .rlg file and save them in .obj format
-    g - Generate new .rlg (by starting from an original .rlg and replacing its vertices with the ones of an obj)
-              
-    DEV STUFF:
-    es - Extract vertices from rlg file and put them in separate OBJs (by group) (for dev purposes only. Those objs won't be useful to recreate an .rlg file)
-    data - print misc data about each mesh of the .rlg file. Data will go into a txt file in the output folder
-    va - print vertex attributes to txt file
-    mesh - print mesh data to txt file
-    index - print index data to txt file
-    
-    x - Exit\n\n''')
+    r = input("\n\n" +PROMPT_STR_BASE_COMMANDS+ "\n\n")
 
     # Check if response is exit
     if(r == "x"):
         exit()
 
     filenames = get_all_rlg_filenames()
+
+
+    # check response and execute if it's a valid command
+    if(r == "e"):
+        for i in filenames:
+            rlg = open("rlg/" + i, "rb")
+            create_obj( rlg )
+            rlg.close()
+
+    elif(r == "g"):
+        for i in filenames:
+            rlg = open("rlg/" + i, "rb")
+            generate_new_rlg( rlg )
+            rlg.close()
+
+    elif(r == "es"):
+        for i in filenames:
+            rlg = open("rlg/" + i, "rb")
+            create_obj( rlg, split_files_by_group=True )
+            rlg.close()
+        
+    elif(r == "d"):
+        for i in filenames:
+            rlg = open("rlg/" + i, "rb")
+            print_misc_data_to_file( rlg )
+            rlg.close()
     
+    elif(r == "help"):
+        print( PROMPT_STR_HELP + "\n")
 
-    for i in filenames:
-        rlg = open("rlg/" + i, "rb")
-        print("\n================================================================")
-
-        if(r == "ev"):
-            extract_rlg_vertices_to_obj_file( rlg )
-
-        #TODO test
-        elif(r == "e"):
-            extract_rlg_vertices_and_faces_to_obj_file( rlg )
-
-        elif(r == "g"):
-            generate_new_rlg(rlg)
-
-        elif(r == "es"):
-            extract_rlg_vertices_to_multiple_obj_files_separate_by_group(rlg)
-
-        elif(r == "va"):
-            print_vertex_attributes_to_file(rlg)
-
-        elif(r == "mesh"):
-            print_mesh_data_to_file(rlg)
-
-        elif(r == "index"):
-            print_index_data_to_file(rlg)
-            
-        elif(r == "data" or r == "d"):
-            print_misc_data_to_file(rlg)
-
-        else:
-            print("invalid input")
-            break
-        print("================================================================")
-        rlg.close()
-    rlg.close()
+    else:
+        print("invalid input")
+        break
+        
     input("Press Enter to continue...")
