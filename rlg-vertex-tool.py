@@ -402,20 +402,32 @@ def create_obj_legacy(filename, vertices, indices=[]):
 
 
 
-def create_obj(rlg):
+# Create obj file, given an rlg file
+def create_obj( rlg, split_files_by_group = False ):
 
     # take the filename, but remove the ".rlg" part
-    filename = os.path.basename( rlg.name ).split(".")[0]
-    # create the file
-    obj = open("output/" +filename+ ".obj", "w")
+    filename_root = os.path.basename( rlg.name ).split(".")[0]
+
+    # create the file (single file mode)
+    if( not split_files_by_group ):
+        filename = filename_root
+        obj = open("output/" +filename+ ".obj", "w")
 
     rlg_dict = get_rlg_dict( rlg )
 
 
+    # iterate on all the rlg's groups (meshes) and save their data in obj format
     for group, group_data in enumerate( rlg_dict ):
+
+        # create the file (multi-file mode)
+        if( split_files_by_group ):
+            filename = filename_root + "_" + str(group)
+            obj = open("output/" +filename+ ".obj", "w")
+
 
         # Write the number of group
         obj.write( "g group " + str( group ) + "\n" )
+
 
         # Write the vertices of this group. In the .obj format, each vertex is a "v" follwed by the XYZ coordinates
         for vertex in group_data['vertices']: 
@@ -423,7 +435,7 @@ def create_obj(rlg):
         
 
         # Write the faces of this group 
-        first_vertex_identifier_of_group = group_data['vertices'][0]['absolute_id']  
+        first_vertex_identifier_of_group = group_data['vertices'][0]['absolute_id']  # get the absolute ID of the first vertex of the group
 
         for face in group_data['faces']:
 
@@ -431,44 +443,27 @@ def create_obj(rlg):
 
             for relative_index in face:  # write the IDs of the vertices that make up the face
 
-                # unlike for .rlg, in a .obj file, the IDs of the vertices aren't relative to their group (they don't reset on each group), so we must convert to absolute_index
+                # unlike for .rlg, in a .obj file, the IDs of the vertices aren't relative to their group (they don't reset on each group), so we must convert to absolute index
+                # that is unless we're splitting files by group. In that case we just use the relative_index
                 # also in a .obj file the first vertex has an ID of 1 (instead of 0 like .rlg), so we must add 1
-                absolute_index = first_vertex_identifier_of_group + relative_index + 1  
-                obj.write( str( absolute_index ) + " " )
+                if( split_files_by_group ):
+                    obj.write( str( relative_index + 1 ) + " " )  # write relative index + 1
+                else: 
+                    obj.write( str( first_vertex_identifier_of_group + relative_index + 1 ) + " " )  # write absolute index + 1
 
             obj.write( "\n" )
 
-        print( "DEBUG g=" + str(group) + " first_v_id=" + str(first_vertex_identifier_of_group) + "\n" )
 
-
-    print(filename + ".obj was successfully created in output folder")
-    obj.close()
-
-
-
-
-def create_obj_for_each_group(filename, vertices):
-    # Remove .rlg from the filename
-    filename = re.split(".rlg", filename)[0]
-    curr_group = 0
-    group_filename = filename + "_0"
-    obj = open("output/" +group_filename+ ".obj", "w")
-
-    for v in vertices:
-        # Switch file
-        if(v["group"] != curr_group):
-            curr_group = v["group"]
-            # Create file
-            group_filename = filename + "_" + str(v["group"])
+        # save the file (multi-file mode)
+        if( split_files_by_group ):
+            print(filename + ".obj was successfully created in output folder")
             obj.close()
-            obj = open("output/" +group_filename+ ".obj", "w")
-            line = "g group" + str( v["group"] ) + "\n"
-            obj.write(line)
-        # Write the vertex
-        line = "v " + str( v["values"][0] ) + " " + str( v["values"][1] ) + " " + str( v["values"][2] ) + "\n"
-        obj.write(line)
-    print("files created in output folder")
-    obj.close()
+
+
+    # save the file (single file mode)
+    if( not split_files_by_group ):
+        print(filename + ".obj was successfully created in output folder")
+        obj.close()
 
 
 
@@ -583,17 +578,11 @@ def extract_rlg_vertices_to_obj_file( rlg ):
 
 # Function to convert a .rlg file to multiple .obj that only contains vertices. Each obj is a group
 def extract_rlg_vertices_to_multiple_obj_files_separate_by_group( rlg ):
-    vertex_attributes = get_vertex_attributes_from_rlg(rlg)
-    vertices = get_vertices_from_rlg(rlg, vertex_attributes)
-    create_obj_for_each_group(i, vertices)
-    rlg.close()
+    create_obj( rlg, split_files_by_group=True )
 
 
 # WIP function to convert a .rlg file to .obj that contains vertices and faces.
 def extract_rlg_vertices_and_faces_to_obj_file( rlg ):
-    vertex_attributes = get_vertex_attributes_from_rlg(rlg)
-    vertices = get_vertices_from_rlg(rlg, vertex_attributes)
-    indices = get_index_data_from_rlg(rlg)
     create_obj(rlg)
 
 
