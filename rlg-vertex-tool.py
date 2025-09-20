@@ -258,22 +258,28 @@ def get_vertex_attributes_from_rlg_split_by_group(rlg):
 
 
 
-def read_model_data(rlg):
+# TODO: WIP, need to split by model. For now only works if the file contains one model
+def get_model_data_from_rlg(rlg):
     
     section_info = rlg_get_section_info( rlg, SECTION_MODEL_DATA )
-    location = section_info[0]
+    start_of_data = section_info[0] + 8
     section_size = section_info[2]
 
     # go to where model data starts
-    rlg.seek( location + 8, 0 )
+    rlg.seek( start_of_data, 0 )
 
-    # loop on it and read stuff idk
     model_count = section_size//12
-    for i in range(0, model_count):
-        rlg.read(4)
-        mesh_count = int.from_bytes( rlg.read(4), "big" )
-        print("mesh count: " +str(mesh_count))
-        rlg.read(4)
+    model_data = []
+
+    for i in range( model_count ):
+
+        model_data.append( {
+            'hash_id' : int.from_bytes( rlg.read(4), "big"),
+            'mesh_count' : int.from_bytes( rlg.read(4), "big" ),
+            '0x8' : int.from_bytes( rlg.read(4), "big" )
+        })
+    
+    return model_data
 
 
 
@@ -285,11 +291,11 @@ def get_mesh_data_from_rlg(rlg):
     print("Reading mesh data of: " +filename)
     
     section_info = rlg_get_section_info( rlg, SECTION_MESH_DATA )
-    location = section_info[0]
+    start_of_data = section_info[0] + 8
     section_size = section_info[2]
 
     # go to where data starts
-    rlg.seek( location+8 , 0 )
+    rlg.seek( start_of_data , 0 )
     start_of_data = rlg.tell()
 
     # read data
@@ -351,12 +357,16 @@ def get_index_data_from_rlg(rlg):
 
 # Get a dict with various data from an rlg file
 # Still WIP. Currently structured like this:
-# List of dicts. Each dict contains data of a mesh. mesh_data, index_data, vertex_attributes, vertices, faces
+# Dict that has the following keys: "model_data", "meshes"
+# "meshes" is a list of dicts, each of which contain data of a group/mesh: "mesh_data", "index_data", "vertex_attributes", "vertices", "faces"
 # For more info look at the comments next to the last "append" in this function
 def get_rlg_dict(rlg):
 
-    data = []
-    read_model_data(rlg)   # TODO ???
+    data = {
+        'model_data' : get_model_data_from_rlg(rlg), 
+        'meshes' : []
+    }
+      
     
     # Read data
     mesh_data = get_mesh_data_from_rlg(rlg)
@@ -394,7 +404,7 @@ def get_rlg_dict(rlg):
 
 
         # Add data to array
-        data.append({
+        data['meshes'].append({
             "mesh_data" : m,                                    # raw mesh data
             "index_data" : index_data_of_this_mesh,             # raw index data (0 based, vertex ids are relative to beginning of mesh/group)
             "vertex_attribute" : vertex_attributes[ i ],        # raw vertex attribute data
@@ -417,11 +427,11 @@ def create_obj( rlg, split_files_by_group = False ):
         filename = filename_root
         obj = open("output/" +filename+ ".obj", "w")
 
-    rlg_dict = get_rlg_dict( rlg )
+    groups = get_rlg_dict( rlg )['meshes']
 
 
     # iterate on all the rlg's groups (meshes) and save their data in obj format
-    for group, group_data in enumerate( rlg_dict ):
+    for group, group_data in enumerate( groups ):
 
         # create the file (multi-file mode)
         if( split_files_by_group ):
@@ -581,12 +591,15 @@ def print_misc_data_to_file(rlg):
 
     txt = open("output/" +filename+ "_miscdata.txt", "w")
 
+    txt.write( "MODEL DATA:\n" )
+    txt.write( str( data['model_data'] ) + "\n\n" )
+
     txt.write( "ALL MESH DATA:\n" )
-    for d in data:
+    for d in data['meshes']:
         txt.write( str(d['mesh_data'] ) + "\n" )
     txt.write( "\n\n\n\n" )
 
-    for i, d in enumerate(data):
+    for i, d in enumerate( data['meshes'] ):
 
         txt.write( "data[" +str(i)+ "]\n" )
         txt.write( "\nMESH DATA:\n" ) # TODO: iterate on the whole dict, and print ints as hex
