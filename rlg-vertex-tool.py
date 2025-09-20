@@ -126,22 +126,15 @@ def bytes_to_float(bytes):
 
 # CORE FUNCTIONS
 # Function to read the vertices of a rlg file. Returns a list containing all the vertices
-def get_vertices_from_rlg( rlg, vertex_attributes ):
+def get_vertices_from_rlg( rlg ):
     
     # get section info
     section_info = rlg_get_section_info( rlg, SECTION_VERTEX_DATA )
     location = section_info[0]
 
-    # in order to determine on which intervals we can find vertices, we need to scan the vertex attributes
-    # find the intervals
-    intervals = []
-    for i, instance in enumerate(vertex_attributes):
-        if( instance['type'] == VERTEX_ATTRIBUTE_TYPE_VERTEX ):
-            intervals.append({
-                'start': instance['offset'],
-                'end': vertex_attributes[i+1]['offset']
-            })
-    print( "DEBUG" + str(intervals) )
+    # get mesh data and vertex attributes, we need it in order to find out how many vertices there are
+    meshes = get_mesh_data_from_rlg( rlg )
+    vertex_attributes = get_vertex_attributes_from_rlg( rlg )
 
     # set up some variables for the loop
     start_of_data = location + 8
@@ -149,24 +142,75 @@ def get_vertices_from_rlg( rlg, vertex_attributes ):
     absolute_id = 0
 
     # repeat for each interval: get all the vertices in the interval
-    for group, interval in enumerate(intervals):
-
-        rlg.seek( start_of_data + interval['start'] )
-        current_byte = rlg.tell() - start_of_data
-
+    for i, mesh in enumerate( meshes ):
+        
         relative_id = 0
 
-        while current_byte < interval['end']:
+        for j in range( int( mesh['vertex_count'], 16 ) ):  # TODO: I shouldn't have to cast vertex_count to int here
+            
+            offset = vertex_attributes[ i*10 ]['offset']  # TODO: move this inside the loop?
+            rlg.seek( start_of_data + offset + (j*12), 0 )
+            current_byte = rlg.tell() - start_of_data  # TODO: remove this?
+            position = [ bytes_to_float( rlg.read(4) ),  
+                         bytes_to_float( rlg.read(4) ), 
+                         bytes_to_float( rlg.read(4) ) ]
+           
+            offset = vertex_attributes[ i*10 + 1 ]['offset']
+            rlg.seek( start_of_data + offset + (j*12), 0 )
+            normal = [ bytes_to_float( rlg.read(4) ),  
+                       bytes_to_float( rlg.read(4) ), 
+                       bytes_to_float( rlg.read(4) ) ]
+            
+            offset = vertex_attributes[ i*10 + 2 ]['offset']
+            rlg.seek( start_of_data + offset + (j*4), 0 )
+            attribute_0xcc = [ bytes_to_float( rlg.read(4) ) ]
+
+            offset = vertex_attributes[ i*10 + 3 ]['offset']
+            rlg.seek( start_of_data + offset + (j*4), 0 )
+            attribute_0xed = [ bytes_to_float( rlg.read(4) ) ]
+
+            offset = vertex_attributes[ i*10 + 4 ]['offset']
+            rlg.seek( start_of_data + offset + (j*4), 0 )
+            attribute_0x52 = [ bytes_to_float( rlg.read(4) ) ]
+
+            offset = vertex_attributes[ i*10 + 5 ]['offset']
+            rlg.seek( start_of_data + offset + (j*4), 0 )
+            attribute_0xc0 = [ bytes_to_float( rlg.read(4) ) ]
+
+            offset = vertex_attributes[ i*10 + 6 ]['offset']
+            rlg.seek( start_of_data + offset + (j*4), 0 )
+            attribute_0xd6 = [ bytes_to_float( rlg.read(4) ) ]
+
+            offset = vertex_attributes[ i*10 + 7 ]['offset']
+            rlg.seek( start_of_data + offset + (j*4), 0 )
+            attribute_0xd7 = [ bytes_to_float( rlg.read(4) ) ]
+
+            offset = vertex_attributes[ i*10 + 8 ]['offset']
+            rlg.seek( start_of_data + offset + (j*4), 0 )
+            attribute_0xd4 = [ bytes_to_float( rlg.read(4) ) ]
+
+            offset = vertex_attributes[ i*10 + 9 ]['offset']
+            rlg.seek( start_of_data + offset + (j*16), 0 )
+            attribute_0xb0 = [ bytes_to_float( rlg.read(4) ),  
+                               bytes_to_float( rlg.read(4) ), 
+                               bytes_to_float( rlg.read(4) ),
+                               bytes_to_float( rlg.read(4) ) ]
 
             a.append( {
                 "absolute_id" : absolute_id,       # id
                 "relavtive_id" : relative_id,      # id (relative to the start of the group)
-                "offset" : current_byte,
-                "type" : VERTEX_ATTRIBUTE_TYPE_VERTEX, 
-                "group" : group,
-                "values" : [ bytes_to_float( rlg.read(4) ),  
-                             bytes_to_float( rlg.read(4) ), 
-                             bytes_to_float( rlg.read(4) ) ]
+                "offset" : current_byte,           # TODO: should I remove this?
+                "group" : i,
+                "position" : position,
+                "normal" : normal,
+                "attribute_0xcc" : attribute_0xcc,
+                "attribute_0xed" : attribute_0xed,
+                "attribute_0x52" : attribute_0x52,
+                "attribute_0xc0" : attribute_0xc0,
+                "attribute_0xd6" : attribute_0xd6,
+                "attribute_0xd7" : attribute_0xd7,
+                "attribute_0xd4" : attribute_0xd4,
+                "attribute_0xb0" : attribute_0xb0,
             } )
 
             current_byte = rlg.tell() - start_of_data
@@ -179,7 +223,7 @@ def get_vertices_from_rlg( rlg, vertex_attributes ):
 
 def get_vertices_from_rlg_split_by_group( rlg ):
 
-    vertices = get_vertices_from_rlg( rlg, get_vertex_attributes_from_rlg(rlg) )
+    vertices = get_vertices_from_rlg( rlg )
     return split_vertices_by_group( vertices )
     
 
@@ -472,7 +516,7 @@ def create_obj( rlg, split_files_by_group = False ):
 
         # Write the vertices of this group. In the .obj format, each vertex is a "v" follwed by the XYZ coordinates
         for vertex in group_data['vertices']: 
-            obj.write( "v " + str( vertex["values"][0] ) + " " + str( vertex["values"][1] ) + " " + str( vertex["values"][2] ) + "\n" )
+            obj.write( "v " + str( vertex["position"][0] ) + " " + str( vertex["position"][1] ) + " " + str( vertex["position"][2] ) + "\n" )
         
 
         # Write the faces of this group 
@@ -574,7 +618,7 @@ def generate_new_rlg(original_rlg):
         return
     
     # check if files have the same amount of vertices. Throw a warning if not
-    old_vertices = get_vertices_from_rlg( original_rlg, get_vertex_attributes_from_rlg(original_rlg) )
+    old_vertices = get_vertices_from_rlg( original_rlg )
     print("Found " + str(len(new_vertices)) + " Vertices in given obj file")
     print("Found " + str(len(old_vertices)) + " Vertices in given rlg file")
     if( len(new_vertices) != len(old_vertices)):
@@ -654,7 +698,16 @@ def print_misc_data_to_file(rlg):
         for e in d['vertices']:
             txt.write( "VERTEX " + hex( vertex_id ) + " " )
             vertex_id += 1
-            txt.write( str( e['values'] ) )
+            txt.write( str( e['position'] ) + "\n" )
+            txt.write( str( e['normal'] ) + "\n" )
+            txt.write( str( e['attribute_0xcc'] ) + "\n" )
+            txt.write( str( e['attribute_0xed'] ) + "\n" )
+            txt.write( str( e['attribute_0x52'] ) + "\n" )
+            txt.write( str( e['attribute_0xc0'] ) + "\n" )
+            txt.write( str( e['attribute_0xd6'] ) + "\n" )
+            txt.write( str( e['attribute_0xd7'] ) + "\n" )
+            txt.write( str( e['attribute_0xd4'] ) + "\n" )
+            txt.write( str( e['attribute_0xb0'] ) + "\n" )
             txt.write( "\n" )
 
         txt.write( "\n\nFACES:\n" )
@@ -708,6 +761,5 @@ while True:
 
     else:
         print("invalid input")
-        break
         
     input("Press Enter to continue...")
