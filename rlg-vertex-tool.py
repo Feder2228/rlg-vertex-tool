@@ -355,6 +355,32 @@ def get_index_data_from_rlg(rlg):
 
 
 
+def get_matrix_from_rlg(rlg):
+
+    section_info = rlg_get_section_info( rlg, SECTION_MATRIX_DATA )
+    start_of_data = section_info[0] + 8
+    rlg.seek( start_of_data, 0 )
+
+    matrix = []
+
+
+    for i in range(4):
+
+        matrix_row = []
+
+        for j in range(4):
+
+            matrix_row.append( bytes_to_float( rlg.read(4) ) )
+        
+        matrix.append( matrix_row )
+
+
+    return matrix
+
+
+
+
+
 # Get a dict with various data from an rlg file
 # Still WIP. Currently structured like this:
 # Dict that has the following keys: "model_data", "meshes"
@@ -363,6 +389,7 @@ def get_index_data_from_rlg(rlg):
 def get_rlg_dict(rlg):
 
     data = {
+        'matrix' : get_matrix_from_rlg(rlg),
         'model_data' : get_model_data_from_rlg(rlg), 
         'meshes' : []
     }
@@ -590,6 +617,11 @@ def print_misc_data_to_file(rlg):
     data = get_rlg_dict(rlg)
 
     txt = open("output/" +filename+ "_miscdata.txt", "w")
+
+    txt.write( "4x4 MATRIX:\n" )
+    for row in data['matrix']:
+        txt.write( str( row ) + "\n" )
+    txt.write( "\n" )
 
     txt.write( "MODEL DATA:\n" )
     txt.write( str( data['model_data'] ) + "\n\n" )
