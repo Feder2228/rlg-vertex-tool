@@ -57,6 +57,9 @@ PROMPT_STR_HELP = '''
     es 
     Same as "e" command, but each group (mesh) is saved in a different .obj file (for dev purposes only. Those objs can't be used to recreate an .rlg file)
 
+    dae
+    Similar to "e", except it creates a .dae file instead of .obj (currently WIP)
+
     d
     Create a .txt file containing various data about each group (mesh) of the .rlg file. The .txt will be saved in the "output" folder.
 '''
@@ -64,16 +67,19 @@ PROMPT_STR_HELP = '''
 # DAE STRINGS
 DAE_STR_HEADER = '''<?xml version="1.0" encoding="utf-8"?>
 <COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <asset/>'''
+  <asset/>
+  <library_images/>'''
 DAE_STR_GEOMETRY_TEMPLATE = '<geometry id="{0}" name="{1}">'
 DAE_STR_SOURCE_TEMPLATE = '<source id="{0}">'
 DAE_STR_FLOAT_ARRAY_TEMPLATE = '<float_array id="{0}" count="{1}">'
 DAE_STR_ACCESSOR_TEMPLATE = '<accessor source="{0}" count="{1}" stride="{2}">'
-DAE_STR_PARAM_TEMPLATE = '<param name="{0}" type="{1}" />'
+DAE_STR_PARAM_TEMPLATE = '<param name="{0}" type="{1}"/>'
 DAE_STR_NODE_TEMPLATE = '<node id="{0}" name="{1}" type="{2}">'
 DAE_STR_INSTANCE_GEOMETRY_TEMPLATE = '<instance_geometry url="{0}" name="{1}"/>'
-
-
+DAE_STR_INPUT_TEMPLATE = '<input semantic="{0}" source="{1}"/>'
+DAE_STR_INPUT_TEMPLATE_OFFSET = '<input semantic="{0}" source="{1}" offset="{2}"/>'
+DAE_STR_INPUT_TEMPLATE_OFFSET_SET = '<input semantic="{0}" source="{1}" offset="{2}" set="{3}"/>'
+DAE_STR_TRIANGLES_TEMPLATE = '<triangles count="{0}">'
 
 # RLG UTILITY FUNCTIONS
 def rlg_get_size(rlg):
@@ -599,49 +605,109 @@ def create_dae( model, filename_root ):
         dae.write( ( TAB * tab_count ) + '<mesh>\n' )
         tab_count += 1
 
-        # open source tag - vertex positions of geometry
-        id = geometry_name + '-mesh-position'
-        dae.write( ( TAB * tab_count ) + DAE_STR_SOURCE_TEMPLATE.format( id ) + '\n' )
+        # iteration 0 is for positions, 1 is for normals, 2 is for vertex colors
+        for j in range(3):
+            
+            # open source tag
+            id = geometry_name + ['-mesh-position', '-mesh-normal', '-mesh-color' ][j]
+            dae.write( ( TAB * tab_count ) + DAE_STR_SOURCE_TEMPLATE.format( id ) + '\n' )
+            tab_count += 1
+
+            # open and close float array tag
+            id = geometry_name + ['-mesh-position', '-mesh-normal', '-mesh-color' ][j] + '-array'
+
+            if j in [0,1]:
+                float_count = int( geometry['mesh_data']['vertex_count'], 16 ) * 3
+            else:
+                float_count = int( geometry['mesh_data']['vertex_count'], 16 ) * 4
+
+            dae.write( ( TAB * tab_count ) + DAE_STR_FLOAT_ARRAY_TEMPLATE.format( id, float_count ) )
+
+            for k, vertex in enumerate( geometry['vertices'] ):
+
+                if j == 0:
+                    dae.write( '{0} {1} {2} '.format( vertex['position'][0], vertex['position'][1], vertex['position'][2] ) )
+                elif j == 1:
+                    dae.write( '{0} {1} {2} '.format( vertex['normal'][0], vertex['normal'][1], vertex['normal'][2] ) )
+                else:
+                    dae.write( '1 1 1 1 ' )
+
+            dae.write( '</float_array>\n' )
+
+            # open technique_common tag
+            dae.write( ( TAB * tab_count ) + '<technique_common>\n' )
+            tab_count += 1
+
+            # open accessor tag
+            source = "#" + geometry_name + "-mesh-position-array"
+            count = int( geometry['mesh_data']['vertex_count'], 16 )
+            stride = geometry['vertex_attributes'][0]['stride']//4
+            dae.write( ( TAB * tab_count ) + DAE_STR_ACCESSOR_TEMPLATE.format( source, count, stride ) + '\n' )
+            tab_count += 1
+
+            # param tag
+            if j in [0,1]:
+                dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "X", "float" ) + '\n')
+                dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "Y", "float" ) + '\n')
+                dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "Z", "float" ) + '\n')
+            else:
+                dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "R", "float" ) + '\n')
+                dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "G", "float" ) + '\n')
+                dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "B", "float" ) + '\n')
+                dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "A", "float" ) + '\n')
+
+            # close accessor tag
+            tab_count -= 1
+            dae.write( ( TAB * tab_count ) + '</accessor>\n' )
+
+            # close technique_common tag
+            tab_count -= 1
+            dae.write( ( TAB * tab_count ) + '</technique_common>\n' )
+
+            # close source tag (positions)
+            tab_count -= 1
+            dae.write( ( TAB * tab_count ) + '</source>\n' )
+
+        
+        # vertices
+        dae.write( ( TAB * tab_count ) + '<vertices>\n' )
         tab_count += 1
 
-        # float array for vertex positions
-        id = geometry_name + '-mesh-position-array'
-        float_count = int( geometry['mesh_data']['vertex_count'], 16 ) * geometry['vertex_attributes'][0]['stride']//4
-        dae.write( ( TAB * tab_count ) + DAE_STR_FLOAT_ARRAY_TEMPLATE.format( id, float_count ) )
+        source = '#' + geometry_name + '-mesh-positions'
+        dae.write( ( TAB * tab_count ) + DAE_STR_INPUT_TEMPLATE.format( "POSITION", source ) + '\n' )
 
-        for j, vertex in enumerate( geometry['vertices'] ):
-            position = vertex['position']
-            dae.write( '{0} {1} {2} '.format( position[0], position[1], position[2] ) )
+        tab_count -= 1
+        dae.write( ( TAB * tab_count ) + '</vertices>\n' )
 
-        dae.write( '</float_array>\n' )
 
-        # open technique_common tag
-        dae.write( ( TAB * tab_count ) + '</technique_common>\n' )
+        # triangles
+        dae.write( ( TAB * tab_count ) + DAE_STR_TRIANGLES_TEMPLATE.format( len( geometry['faces'] ) ) + '\n' )
         tab_count += 1
 
-        # open accessor tag
-        source = "#" + geometry_name + "-mesh-position-array"
-        count = int( geometry['mesh_data']['vertex_count'], 16 )
-        stride = geometry['vertex_attributes'][0]['stride']//4
-        dae.write( ( TAB * tab_count ) + DAE_STR_ACCESSOR_TEMPLATE.format( source, count, stride ) + '\n' )
-        tab_count += 1
+        source = '#' + geometry_name + '-mesh-vertex'
+        dae.write( ( TAB * tab_count ) + DAE_STR_INPUT_TEMPLATE_OFFSET.format( "POSITION", source, 0 ) + '\n' )
+        source = '#' + geometry_name + '-mesh-normal'
+        dae.write( ( TAB * tab_count ) + DAE_STR_INPUT_TEMPLATE_OFFSET.format( "NORMAL", source, 1 ) + '\n' )
+        source = '#' + geometry_name + '-mesh-color'
+        dae.write( ( TAB * tab_count ) + DAE_STR_INPUT_TEMPLATE_OFFSET_SET.format( "COLOR", source, 2, 0 ) + '\n' )
 
-        # param tags
-        dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "X", "float" ) + '\n')
-        dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "Y", "float" ) + '\n')
-        dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "Z", "float" ) + '\n')
+        # p tag (array of indices)
+        dae.write( ( TAB * tab_count ) + '<p>' )
 
-        # close accessor tag
+        for face in geometry['faces']:
+            
+            for index in face:
+                
+                dae.write( str(index) + ' ' )  # vertex position index
+                dae.write( str(index) + ' ' )  # vertex normal index # TODO: idk if this is how it's supposed to work
+                dae.write( str(index) + ' ' )  # vertex color index
+
+        dae.write( '</p>\n' )
+
         tab_count -= 1
-        dae.write( ( TAB * tab_count ) + '</accessor>\n' )
+        dae.write( ( TAB * tab_count ) + '</triangles>\n' )
+        
 
-        # close technique_common tag
-        tab_count -= 1
-        dae.write( ( TAB * tab_count ) + '</technique_common>\n' )
-
-        # close source tag (positions)
-        tab_count -= 1
-        dae.write( ( TAB * tab_count ) + '</source>\n' )
 
         # close mesh and geometry tags
         tab_count -= 1
