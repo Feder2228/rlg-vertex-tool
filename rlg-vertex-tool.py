@@ -70,6 +70,8 @@ DAE_STR_SOURCE_TEMPLATE = '<source id="{0}">'
 DAE_STR_FLOAT_ARRAY_TEMPLATE = '<float_array id="{0}" count="{1}">'
 DAE_STR_ACCESSOR_TEMPLATE = '<accessor source="{0}" count="{1}" stride="{2}">'
 DAE_STR_PARAM_TEMPLATE = '<param name="{0}" type="{1}" />'
+DAE_STR_NODE_TEMPLATE = '<node id="{0}" name="{1}" type="{2}">'
+DAE_STR_INSTANCE_GEOMETRY_TEMPLATE = '<instance_geometry url="{0}" name="{1}"/>'
 
 
 
@@ -579,7 +581,9 @@ def create_dae( model, filename_root ):
     TAB = "  "
     tab_count = 1
     
-    # geometries
+
+
+    # LIBRARY_GEOMETRIES
     dae.write( ( TAB * tab_count ) + '<library_geometries>\n' )
     tab_count += 1
 
@@ -646,11 +650,62 @@ def create_dae( model, filename_root ):
         tab_count -= 1
         dae.write( ( TAB * tab_count ) + '</geometry>\n' )
 
+    # close library_geometries tag
     tab_count -= 1
     dae.write( ( TAB * tab_count ) + '</library_geometries>\n' )
 
+
+
+    # LIBRARY_VISUAL_SCENES
+    dae.write( ( TAB * tab_count ) + '<library_visual_scenes>\n' )
+    tab_count += 1
+
+    # open visual scene tag
+    dae.write( ( TAB * tab_count ) + '<visual_scene id="Scene" name="Scene">\n' )
+    tab_count += 1
+
+    for i, geometry in enumerate( model['meshes'] ):
+
+        # open node tag
+        geometry_name = filename_root + "_" + str(i)
+        dae.write( ( TAB * tab_count ) + DAE_STR_NODE_TEMPLATE.format( geometry_name, geometry_name, "NODE" ) + '\n' )
+        tab_count += 1
+
+        # open and close matrix tag
+        dae.write( ( TAB * tab_count ) + '<matrix sid="transform">1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1</matrix>\n' )
+
+        # geometry_instance tag
+        url = '#' + geometry_name + '-mesh'
+        dae.write( ( TAB * tab_count ) + DAE_STR_INSTANCE_GEOMETRY_TEMPLATE.format( url, geometry_name ) + '\n' )
+
+        # close node tag
+        tab_count -= 1
+        dae.write( ( TAB * tab_count ) + '</node>\n' )
+
+    # close visual scene tag
+    tab_count -= 1
+    dae.write( ( TAB * tab_count ) + '</visual_scene>\n' )
+
+    # close library_visual_scenes tag
+    tab_count -= 1
+    dae.write( ( TAB * tab_count ) + '</library_visual_scenes>\n' )
+
+
+    # SCENE
+    dae.write( ( TAB * tab_count ) + '<scene>\n' )
+    tab_count += 1
+
+    dae.write( ( TAB * tab_count ) + '<instance_visual_scene url="#Scene"/>\n' )
+
+    tab_count -= 1
+    dae.write( ( TAB * tab_count ) + '</scene>\n' )
+
+    
+    # close collada tag (end of file)
     tab_count -= 1
     dae.write( ( TAB * tab_count ) + '</COLLADA>\n' )
+
+    dae.close()
 
 
 
