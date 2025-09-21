@@ -114,6 +114,33 @@ def rlg_get_section_info( rlg, section_identifier ):
 
     return info
 
+def vector_sum( v1, v2 ):
+    return [ v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2] ]
+
+def vector_sum3( v1, v2, v3 ):
+    return [ v1[0] + v2[0] + v3[0], v1[1] + v2[1] + v3[1], v1[2] + v2[2] + v3[2]]
+
+def vector_sub( v1, v2 ):
+    return [ v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2] ]
+
+# find the plane the vectors v1 and v2 belong to
+# return: [ a, b, c ], which represents ax + by + cz = 0
+def find_plane( v1, v2 ):
+
+    a = det2( [ [ v1[1], v1[2] ],
+                [ v2[1], v2[2] ] ] )
+    
+    b = det2( [ [ v1[0], v1[2] ],
+                [ v2[0], v2[2] ] ] ) * -1
+    
+    c = det2( [ [ v1[0], v1[1] ],
+                [ v2[0], v2[1] ] ] )
+    
+    return [ a, b, c ]
+
+
+def det2( m ):
+    return (m[0][0] * m[1][1]) - (m[0][1] * m[1][0])
 
 
 
@@ -618,7 +645,7 @@ def create_dae( model, filename_root ):
             id = geometry_name + ['-mesh-position', '-mesh-normal', '-mesh-color' ][j] + '-array'
 
             if j in [0,1]:
-                float_count = int( geometry['mesh_data']['vertex_count'], 16 ) * 3
+                float_count = int( geometry['mesh_data']['vertex_count'], 16 ) * 3  # TODO: strides won't always work like this. Fix in the future
             else:
                 float_count = int( geometry['mesh_data']['vertex_count'], 16 ) * 4
 
@@ -702,11 +729,43 @@ def create_dae( model, filename_root ):
         dae.write( ( TAB * tab_count ) + '<p>' )
 
         for face in geometry['faces']:
+
+            # TODO: WIP - I am still trying to figure out how normals work
+            # the idea would be to understand which side the face is facing, and if it's facing the clockwise side, swap two of the indices to make it counterclockwise
+            vertices = geometry['vertices']
+            index0 = face[0]
+            index1 = face[1]
+            index2 = face[2]
+            # sum the normals of the vertices
+            face_normal_thing = vector_sum3( vertices[ index0 ]['normal'], vertices[ index1 ]['normal'], vertices[ index2 ]['normal'] )
+
+            print( "DEBUG: facenrm=" + str(face_normal_thing) )
+            # now, how do we tell on which side of the face the normal is? I have no idea how to do this
+            face_positions = [ [ vertices[ index0 ]['position'][0], vertices[ index0 ]['position'][1], vertices[ index0 ]['position'][2] ],
+                               [ vertices[ index1 ]['position'][0], vertices[ index1 ]['position'][1], vertices[ index1 ]['position'][2] ],
+                               [ vertices[ index2 ]['position'][0], vertices[ index2 ]['position'][1], vertices[ index2 ]['position'][2] ] ]
+            
+            # shift the face in a way so the first vertex is on the origin
+            face_positions_on_origin = [ vector_sub( face_positions[0], face_positions[0] ),
+                                         vector_sub( face_positions[1], face_positions[0] ),
+                                         vector_sub( face_positions[2], face_positions[0] ) ]
+
+            print( "DEBUG: face=" + str(face_positions) )
+            print( "DEBUG: faceO=" + str(face_positions_on_origin) )
+            # I need the equation of the plane which the triangle belongs to
+            # Once I have that, I can check if the "normal" is above or below it I guess
+
+            plane = find_plane( face_positions_on_origin[1], face_positions_on_origin[2] )
+
+            print( "DEBUG: =  \n")
+
+            # these three vectors (should) all belong to the same plane
+
             
             for index in face:
                 
                 dae.write( str(index) + ' ' )  # vertex position index
-                dae.write( str(index) + ' ' )  # vertex normal index # TODO: idk if this is how it's supposed to work
+                dae.write( str(index) + ' ' )  # vertex normal index
                 dae.write( str(index) + ' ' )  # vertex color index
 
         dae.write( '</p>\n' )
@@ -950,6 +1009,14 @@ def print_misc_data_to_file(rlg):
 
 
 # START OF CODE
+
+v1 = [ 0, 1, 0 ]
+v2 = [ 1, 0, 1 ]
+
+print( find_plane( v1, v2 ) )
+
+exit()
+
 while True:
     r = input("\n\n" +PROMPT_STR_BASE_COMMANDS+ "\n\n")
 
