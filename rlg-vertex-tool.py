@@ -61,6 +61,16 @@ PROMPT_STR_HELP = '''
     Create a .txt file containing various data about each group (mesh) of the .rlg file. The .txt will be saved in the "output" folder.
 '''
 
+# DAE STRINGS
+DAE_STR_HEADER = '''<?xml version="1.0" encoding="utf-8"?>
+  <COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+</asset>'''
+DAE_STR_GEOMETRY_TEMPLATE = '<geometry id="{0}" name="{1}">'
+DAE_STR_SOURCE_TEMPLATE = '<source id="{0}">'
+DAE_STR_ACCESSOR_TEMPLATE = '<accessor source="{0}" count="{1}" stride="{2}">'
+DAE_STR_PARAM_TEMPLATE = '<param name="{0}" type="{1}" />'
+
+
 
 # RLG UTILITY FUNCTIONS
 def rlg_get_size(rlg):
@@ -483,7 +493,7 @@ def get_rlg_dict(rlg):
         data['meshes'].append({
             "mesh_data" : m,                                    # raw mesh data
             "index_data" : index_data_of_this_mesh,             # raw index data (0 based, vertex ids are relative to beginning of mesh/group)
-            "vertex_attribute" : vertex_attributes[ i ],        # raw vertex attribute data
+            "vertex_attributes" : vertex_attributes[ i ],        # raw vertex attribute data
             "vertices" : vertices[ i ],                         # processed vertices
             "faces" : faces_of_this_mesh                        # processed faces (0 based, vertex ids are relative to beginning of mesh/group)
         })
@@ -554,6 +564,67 @@ def create_obj( rlg, split_files_by_group = False ):
     if( not split_files_by_group ):
         print(filename + ".obj was successfully created in output folder")
         obj.close()
+
+
+
+
+def create_dae( model, filename_root ):
+
+    filename = filename_root
+    dae = open( DIR_PATH_OUTPUT + filename + ".dae", "w" )
+
+    dae.write( DAE_STR_HEADER + '\n' )
+
+    TAB = "  "
+    tab_count = 1
+    
+    # geometries
+    dae.write( ( TAB * tab_count ) + '<library_geometries>\n' )
+    tab_count += 1
+
+    for i, geometry in enumerate( model['meshes'] ):
+
+        # geometry name and id
+        geometry_name = filename_root + "_" + str(i)
+        id = geometry_name + '-mesh'
+        dae.write( ( TAB * tab_count ) + DAE_STR_GEOMETRY_TEMPLATE.format( id, geometry_name ) + '\n' )
+        tab_count += 1
+        
+        dae.write( ( TAB * tab_count ) + '<mesh>\n' )
+        tab_count += 1
+
+        # vertex positions of geometry
+        id = geometry_name + '-mesh-position'
+        dae.write( ( TAB * tab_count ) + DAE_STR_SOURCE_TEMPLATE.format( id ) + '\n' )
+        tab_count += 1
+
+        #for j, vertices in enumerate( geometry['vertices']['position'] ):
+        #    d
+
+        
+        source = "#" + geometry_name + "-mesh-position-array"
+        count = int( geometry['mesh_data']['vertex_count'], 16 )
+        stride = geometry['vertex_attributes'][0]['stride']//4
+        dae.write( ( TAB * tab_count ) + DAE_STR_ACCESSOR_TEMPLATE.format( source, count, stride ) + '\n' )
+        tab_count += 1
+
+        
+        # end of accessor tag
+        tab_count -= 1
+        dae.write( ( TAB * tab_count ) + '</accessor>\n' )
+
+        # end of source tag (positions)
+        tab_count -= 1
+        dae.write( ( TAB * tab_count ) + '</source>\n' )
+
+        # end of mesh and geometry tags
+        tab_count -= 1
+        dae.write( ( TAB * tab_count ) + '</mesh>\n' )
+
+        tab_count -= 1
+        dae.write( ( TAB * tab_count ) + '</geometry>\n' )
+
+    dae.write( "</library_geometries>\n" )
 
 
 
@@ -759,6 +830,11 @@ while True:
             rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
             print_misc_data_to_file( rlg )
             rlg.close()
+
+    elif(r == "dae"):
+        for i in filenames:
+            rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
+            create_dae( get_rlg_dict(rlg), i.split(".")[0] )
     
     elif(r == "help"):
         print( PROMPT_STR_HELP + "\n")
