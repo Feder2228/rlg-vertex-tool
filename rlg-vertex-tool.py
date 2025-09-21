@@ -123,8 +123,15 @@ def vector_sum3( v1, v2, v3 ):
 def vector_sub( v1, v2 ):
     return [ v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2] ]
 
+def dot_product( v1, v2 ):
+    result = 0
+    for i in range( len(v1) ):
+        result += v1[i] * v2[i]
+    return result
+
 # find the plane the vectors v1 and v2 belong to
-# return: [ a, b, c ], which represents ax + by + cz = 0
+# return: [ a, b, c ], which represents the normal of the plane
+# the equation of the plane is ax + by + cz = 0
 def find_plane( v1, v2 ):
 
     a = det2( [ [ v1[1], v1[2] ],
@@ -755,11 +762,15 @@ def create_dae( model, filename_root ):
             # I need the equation of the plane which the triangle belongs to
             # Once I have that, I can check if the "normal" is above or below it I guess
 
-            plane = find_plane( face_positions_on_origin[1], face_positions_on_origin[2] )
+            dae_normal = find_plane( face_positions_on_origin[1], face_positions_on_origin[2] )
 
-            print( "DEBUG: =  \n")
+            if dot_product( dae_normal, face_normal_thing ) < 0:
+                # swap two of the indices
+                tmp = face[0]
+                face[0] = face[1]
+                face[1] = tmp
+                print("DEBUG: swap stuff\n")
 
-            # these three vectors (should) all belong to the same plane
 
             
             for index in face:
@@ -1009,14 +1020,6 @@ def print_misc_data_to_file(rlg):
 
 
 # START OF CODE
-
-v1 = [ 0, 1, 0 ]
-v2 = [ 1, 0, 1 ]
-
-print( find_plane( v1, v2 ) )
-
-exit()
-
 while True:
     r = input("\n\n" +PROMPT_STR_BASE_COMMANDS+ "\n\n")
 
