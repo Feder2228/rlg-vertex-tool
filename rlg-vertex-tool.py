@@ -63,10 +63,11 @@ PROMPT_STR_HELP = '''
 
 # DAE STRINGS
 DAE_STR_HEADER = '''<?xml version="1.0" encoding="utf-8"?>
-  <COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-</asset>'''
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <asset/>'''
 DAE_STR_GEOMETRY_TEMPLATE = '<geometry id="{0}" name="{1}">'
 DAE_STR_SOURCE_TEMPLATE = '<source id="{0}">'
+DAE_STR_FLOAT_ARRAY_TEMPLATE = '<float_array id="{0}" count="{1}">'
 DAE_STR_ACCESSOR_TEMPLATE = '<accessor source="{0}" count="{1}" stride="{2}">'
 DAE_STR_PARAM_TEMPLATE = '<param name="{0}" type="{1}" />'
 
@@ -584,47 +585,72 @@ def create_dae( model, filename_root ):
 
     for i, geometry in enumerate( model['meshes'] ):
 
-        # geometry name and id
+        # open geometry tag
         geometry_name = filename_root + "_" + str(i)
         id = geometry_name + '-mesh'
         dae.write( ( TAB * tab_count ) + DAE_STR_GEOMETRY_TEMPLATE.format( id, geometry_name ) + '\n' )
         tab_count += 1
         
+        # open mesh tag
         dae.write( ( TAB * tab_count ) + '<mesh>\n' )
         tab_count += 1
 
-        # vertex positions of geometry
+        # open source tag - vertex positions of geometry
         id = geometry_name + '-mesh-position'
         dae.write( ( TAB * tab_count ) + DAE_STR_SOURCE_TEMPLATE.format( id ) + '\n' )
         tab_count += 1
 
-        #for j, vertices in enumerate( geometry['vertices']['position'] ):
-        #    d
+        # float array for vertex positions
+        id = geometry_name + '-mesh-position-array'
+        float_count = int( geometry['mesh_data']['vertex_count'], 16 ) * geometry['vertex_attributes'][0]['stride']//4
+        dae.write( ( TAB * tab_count ) + DAE_STR_FLOAT_ARRAY_TEMPLATE.format( id, float_count ) )
 
-        
+        for j, vertex in enumerate( geometry['vertices'] ):
+            position = vertex['position']
+            dae.write( '{0} {1} {2} '.format( position[0], position[1], position[2] ) )
+
+        dae.write( '</float_array>\n' )
+
+        # open technique_common tag
+        dae.write( ( TAB * tab_count ) + '</technique_common>\n' )
+        tab_count += 1
+
+        # open accessor tag
         source = "#" + geometry_name + "-mesh-position-array"
         count = int( geometry['mesh_data']['vertex_count'], 16 )
         stride = geometry['vertex_attributes'][0]['stride']//4
         dae.write( ( TAB * tab_count ) + DAE_STR_ACCESSOR_TEMPLATE.format( source, count, stride ) + '\n' )
         tab_count += 1
 
-        
-        # end of accessor tag
+        # param tags
+        dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "X", "float" ) + '\n')
+        dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "Y", "float" ) + '\n')
+        dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "Z", "float" ) + '\n')
+
+        # close accessor tag
         tab_count -= 1
         dae.write( ( TAB * tab_count ) + '</accessor>\n' )
 
-        # end of source tag (positions)
+        # close technique_common tag
+        tab_count -= 1
+        dae.write( ( TAB * tab_count ) + '</technique_common>\n' )
+
+        # close source tag (positions)
         tab_count -= 1
         dae.write( ( TAB * tab_count ) + '</source>\n' )
 
-        # end of mesh and geometry tags
+        # close mesh and geometry tags
         tab_count -= 1
         dae.write( ( TAB * tab_count ) + '</mesh>\n' )
 
         tab_count -= 1
         dae.write( ( TAB * tab_count ) + '</geometry>\n' )
 
-    dae.write( "</library_geometries>\n" )
+    tab_count -= 1
+    dae.write( ( TAB * tab_count ) + '</library_geometries>\n' )
+
+    tab_count -= 1
+    dae.write( ( TAB * tab_count ) + '</COLLADA>\n' )
 
 
 
