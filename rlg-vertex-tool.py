@@ -114,6 +114,7 @@ def rlg_get_section_info( rlg, section_identifier ):
 
     return info
 
+# 3D MATHS UTILITY FUNCTIONS
 def vector_sum( v1, v2 ):
     return [ v1[0] + v2[0], v1[1] + v2[1], v1[2] + v2[2] ]
 
@@ -148,6 +149,44 @@ def find_plane( v1, v2 ):
 
 def det2( m ):
     return (m[0][0] * m[1][1]) - (m[0][1] * m[1][0])
+
+
+# This function checks the vertex normals of a tri to determine on which side that tri should face.
+# If the triangle vertices are clockwise, it makes them counterclockwise. Otherwise does nothing.
+def adjust_normals_for_dae( tri, geometry ):
+
+    # look at the vertex normals to determine which side the tri is facing (this is how it works in .rlg files)
+    vertices = geometry['vertices']
+    index0 = tri[0]
+    index1 = tri[1]
+    index2 = tri[2]
+
+    # sum the normals of the vertices. In the rlg format, the triagle faces towards this point
+    # (this is not actually the normal, just a random point on the same side as the normal)
+    tri_normal_thing = vector_sum3( vertices[ index0 ]['normal'], vertices[ index1 ]['normal'], vertices[ index2 ]['normal'] )
+
+    # make a matrix of the positions of the triangle's vertices
+    tri_positions = [ [ vertices[ index0 ]['position'][0], vertices[ index0 ]['position'][1], vertices[ index0 ]['position'][2] ],
+                      [ vertices[ index1 ]['position'][0], vertices[ index1 ]['position'][1], vertices[ index1 ]['position'][2] ],
+                      [ vertices[ index2 ]['position'][0], vertices[ index2 ]['position'][1], vertices[ index2 ]['position'][2] ] ]
+    
+    # shift the tri in a way so that the first vertex is on the origin
+    tri_positions_on_origin = [ vector_sub( tri_positions[0], tri_positions[0] ),
+                                vector_sub( tri_positions[1], tri_positions[0] ),
+                                vector_sub( tri_positions[2], tri_positions[0] ) ]
+
+    # find the counterclockwise normal
+    dae_normal = find_plane( tri_positions_on_origin[1], tri_positions_on_origin[2] )
+
+    # determine whether the vertex normal sum is on the counterclockwise side or not.
+    # use dot product for this. If the result is negative they're on opposite sides
+    # in that case, it would be on the clockwise side, so swap two of the indices to make it counterclockwise
+    if dot_product( dae_normal, tri_normal_thing ) < 0:
+        # swap two indices
+        tmp = tri[0]
+        tri[0] = tri[1]
+        tri[1] = tmp
+
 
 
 
@@ -735,45 +774,11 @@ def create_dae( model, filename_root ):
         # p tag (array of indices)
         dae.write( ( TAB * tab_count ) + '<p>' )
 
-        for face in geometry['faces']:
+        for tri in geometry['faces']:
 
-            # TODO: WIP - I am still trying to figure out how normals work
-            # the idea would be to understand which side the face is facing, and if it's facing the clockwise side, swap two of the indices to make it counterclockwise
-            vertices = geometry['vertices']
-            index0 = face[0]
-            index1 = face[1]
-            index2 = face[2]
-            # sum the normals of the vertices
-            face_normal_thing = vector_sum3( vertices[ index0 ]['normal'], vertices[ index1 ]['normal'], vertices[ index2 ]['normal'] )
-
-            print( "DEBUG: facenrm=" + str(face_normal_thing) )
-            # now, how do we tell on which side of the face the normal is? I have no idea how to do this
-            face_positions = [ [ vertices[ index0 ]['position'][0], vertices[ index0 ]['position'][1], vertices[ index0 ]['position'][2] ],
-                               [ vertices[ index1 ]['position'][0], vertices[ index1 ]['position'][1], vertices[ index1 ]['position'][2] ],
-                               [ vertices[ index2 ]['position'][0], vertices[ index2 ]['position'][1], vertices[ index2 ]['position'][2] ] ]
+            adjust_normals_for_dae( tri, geometry )
             
-            # shift the face in a way so the first vertex is on the origin
-            face_positions_on_origin = [ vector_sub( face_positions[0], face_positions[0] ),
-                                         vector_sub( face_positions[1], face_positions[0] ),
-                                         vector_sub( face_positions[2], face_positions[0] ) ]
-
-            print( "DEBUG: face=" + str(face_positions) )
-            print( "DEBUG: faceO=" + str(face_positions_on_origin) )
-            # I need the equation of the plane which the triangle belongs to
-            # Once I have that, I can check if the "normal" is above or below it I guess
-
-            dae_normal = find_plane( face_positions_on_origin[1], face_positions_on_origin[2] )
-
-            if dot_product( dae_normal, face_normal_thing ) < 0:
-                # swap two of the indices
-                tmp = face[0]
-                face[0] = face[1]
-                face[1] = tmp
-                print("DEBUG: swap stuff\n")
-
-
-            
-            for index in face:
+            for index in tri:
                 
                 dae.write( str(index) + ' ' )  # vertex position index
                 dae.write( str(index) + ' ' )  # vertex normal index
