@@ -79,6 +79,7 @@ DAE_STR_INSTANCE_GEOMETRY_TEMPLATE = '<instance_geometry url="{0}" name="{1}"/>'
 DAE_STR_INPUT_TEMPLATE = '<input semantic="{0}" source="{1}"/>'
 DAE_STR_INPUT_TEMPLATE_OFFSET = '<input semantic="{0}" source="{1}" offset="{2}"/>'
 DAE_STR_INPUT_TEMPLATE_OFFSET_SET = '<input semantic="{0}" source="{1}" offset="{2}" set="{3}"/>'
+DAE_STR_VERTICES_TEMPLATE = '<vertices id="{0}">'
 DAE_STR_TRIANGLES_TEMPLATE = '<triangles count="{0}">'
 
 # RLG UTILITY FUNCTIONS
@@ -639,9 +640,14 @@ def create_dae( model, filename_root ):
             tab_count += 1
 
             # open accessor tag
-            source = "#" + geometry_name + "-mesh-position-array"
+            source = "#" + geometry_name + [ "-mesh-position-array", "-mesh-normal-array", "-mesh-color-array" ][j]
             count = int( geometry['mesh_data']['vertex_count'], 16 )
-            stride = geometry['vertex_attributes'][0]['stride']//4
+
+            if j in [0,1]:
+                stride = 3
+            else:
+                stride = 4
+
             dae.write( ( TAB * tab_count ) + DAE_STR_ACCESSOR_TEMPLATE.format( source, count, stride ) + '\n' )
             tab_count += 1
 
@@ -670,10 +676,11 @@ def create_dae( model, filename_root ):
 
         
         # vertices
-        dae.write( ( TAB * tab_count ) + '<vertices>\n' )
+        id = geometry_name + '-mesh-vertex'
+        dae.write( ( TAB * tab_count ) + DAE_STR_VERTICES_TEMPLATE.format( id ) + '\n' )
         tab_count += 1
 
-        source = '#' + geometry_name + '-mesh-positions'
+        source = '#' + geometry_name + '-mesh-position'
         dae.write( ( TAB * tab_count ) + DAE_STR_INPUT_TEMPLATE.format( "POSITION", source ) + '\n' )
 
         tab_count -= 1
@@ -685,7 +692,7 @@ def create_dae( model, filename_root ):
         tab_count += 1
 
         source = '#' + geometry_name + '-mesh-vertex'
-        dae.write( ( TAB * tab_count ) + DAE_STR_INPUT_TEMPLATE_OFFSET.format( "POSITION", source, 0 ) + '\n' )
+        dae.write( ( TAB * tab_count ) + DAE_STR_INPUT_TEMPLATE_OFFSET.format( "VERTEX", source, 0 ) + '\n' )
         source = '#' + geometry_name + '-mesh-normal'
         dae.write( ( TAB * tab_count ) + DAE_STR_INPUT_TEMPLATE_OFFSET.format( "NORMAL", source, 1 ) + '\n' )
         source = '#' + geometry_name + '-mesh-color'
