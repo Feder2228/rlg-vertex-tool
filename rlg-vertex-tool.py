@@ -27,6 +27,11 @@ VERTEX_ATTRIBUTE_TYPE_8 = 0xd7
 VERTEX_ATTRIBUTE_TYPE_9 = 0xd4
 VERTEX_ATTRIBUTE_TYPE_10 = 0xb0
 
+# DIRECTORT PATHS
+DIR_PATH_OUTPUT = "output/"
+DIR_PATH_INPUT_NLG_FORMATS = "rlg/"
+DIR_PATH_INPUT_COMMON_FORMATS = "obj/"
+
 # PROMPT STRINGS
 PROMPT_STR_BASE_COMMANDS = '''-- Select a command --
     e - extract data from .rlg (save as .obj)
@@ -68,25 +73,26 @@ def rlg_get_data(rlg):
     return rlg.read( size )
 
 def rlg_get_section_info( rlg, section_identifier ):
-    a = []
-    data = rlg_get_data( rlg )
-    location = data.find( section_identifier )
 
-    # location of section
-    a.append( location )        
+    data = rlg_get_data( rlg )
+    location = data.find( section_identifier )       
 
     # flags      
     rlg.seek( location, 0 )
-    flags = rlg.read(2)
-    flags = int.from_bytes( flags, "big" )
-    a.append( flags )           
+    flags = int.from_bytes( rlg.read(2), "big" )   
 
     # section size
     rlg.seek( location + 4, 0 )
-    section_size = rlg.read(4)
-    section_size = int.from_bytes( section_size, "big" )
-    a.append( section_size )          
-    return a
+    section_size = int.from_bytes( rlg.read(4), "big" )
+
+    info = {
+        'location' : location,
+        'start_of_data' : location + 8,
+        'flags' : flags,
+        'section_size' : section_size 
+    }
+
+    return info
 
 
 
@@ -130,14 +136,13 @@ def get_vertices_from_rlg( rlg ):
     
     # get section info
     section_info = rlg_get_section_info( rlg, SECTION_VERTEX_DATA )
-    location = section_info[0]
 
     # get mesh data and vertex attributes, we need it in order to find out how many vertices there are
     meshes = get_mesh_data_from_rlg( rlg )
     vertex_attributes = get_vertex_attributes_from_rlg( rlg )
 
     # set up some variables for the loop
-    start_of_data = location + 8
+    start_of_data = section_info['start_of_data']
     a = []
     absolute_id = 0
 
@@ -250,9 +255,8 @@ def split_vertices_by_group( vertices ):
 def get_vertex_attributes_from_rlg(rlg):
     
     section_info = rlg_get_section_info( rlg, SECTION_VERTEX_ATTRIBUTES )
-    location = section_info[0]
-    section_size = section_info[2]
-    start_of_data = location + 8
+    start_of_data = section_info['start_of_data']
+    section_size = section_info['section_size']
 
     # set some variables for the loop
     rlg.seek( start_of_data ,0)
@@ -306,8 +310,8 @@ def get_vertex_attributes_from_rlg_split_by_group(rlg):
 def get_model_data_from_rlg(rlg):
     
     section_info = rlg_get_section_info( rlg, SECTION_MODEL_DATA )
-    start_of_data = section_info[0] + 8
-    section_size = section_info[2]
+    start_of_data = section_info['start_of_data']
+    section_size = section_info['section_size']
 
     # go to where model data starts
     rlg.seek( start_of_data, 0 )
@@ -335,8 +339,8 @@ def get_mesh_data_from_rlg(rlg):
     print("Reading mesh data of: " +filename)
     
     section_info = rlg_get_section_info( rlg, SECTION_MESH_DATA )
-    start_of_data = section_info[0] + 8
-    section_size = section_info[2]
+    start_of_data = section_info['start_of_data']
+    section_size = section_info['section_size']
 
     # go to where data starts
     rlg.seek( start_of_data , 0 )
@@ -383,10 +387,10 @@ def get_mesh_data_from_rlg(rlg):
 def get_index_data_from_rlg(rlg):
     
     section_info = rlg_get_section_info( rlg, SECTION_INDEX_DATA )
-    section_size = section_info[2]
+    start_of_data = section_info['start_of_data']
+    section_size = section_info['section_size']
 
     # go to where data starts
-    start_of_data = section_info[0] + 8
     rlg.seek( start_of_data, 0 )
     end_of_section = start_of_data + section_size
 
@@ -402,7 +406,8 @@ def get_index_data_from_rlg(rlg):
 def get_matrix_from_rlg(rlg):
 
     section_info = rlg_get_section_info( rlg, SECTION_MATRIX_DATA )
-    start_of_data = section_info[0] + 8
+    start_of_data = section_info['start_of_data']
+
     rlg.seek( start_of_data, 0 )
 
     matrix = []
@@ -496,7 +501,7 @@ def create_obj( rlg, split_files_by_group = False ):
     # create the file (single file mode)
     if( not split_files_by_group ):
         filename = filename_root
-        obj = open("output/" +filename+ ".obj", "w")
+        obj = open( DIR_PATH_OUTPUT + filename + ".obj", "w" )
 
     groups = get_rlg_dict( rlg )['meshes']
 
@@ -507,7 +512,7 @@ def create_obj( rlg, split_files_by_group = False ):
         # create the file (multi-file mode)
         if( split_files_by_group ):
             filename = filename_root + "_" + str(group)
-            obj = open("output/" +filename+ ".obj", "w")
+            obj = open( DIR_PATH_OUTPUT + filename + ".obj", "w" )
 
 
         # Write the number of group
@@ -555,7 +560,7 @@ def create_obj( rlg, split_files_by_group = False ):
 
 def get_vertices_from_obj(filename):
     print("filename: " +filename)
-    obj = open("obj/" + filename + ".obj", "r")
+    obj = open( DIR_PATH_INPUT_COMMON_FORMATS + filename + ".obj", "r" )
     # find the file size
     obj.seek(0,2)
     file_size = obj.tell()
@@ -625,15 +630,14 @@ def generate_new_rlg(original_rlg):
         print("Warning: The vertex count of the two files doesn't match. This may lead to errors, or the output rlg file might be incorrect")
 
     # open the file and find the start of the section we need
-    rlg = open("rlg/"+filename+".rlg", "rb")
+    rlg = open( DIR_PATH_INPUT_NLG_FORMATS + filename + ".rlg", "rb" )
     section_info = rlg_get_section_info( rlg, SECTION_VERTEX_DATA )
-    location = section_info[0]  
-    start_of_data = location+8
+    start_of_data = section_info['start_of_data']  
     rlg.close()
 
     # copy the rlg file to the output folder and replace its vertices 
-    shutil.copyfile('./rlg/'+filename+'.rlg', './output/'+filename+'.rlg')
-    rlg = open("output/"+filename+'.rlg', "r+b")
+    shutil.copyfile( DIR_PATH_INPUT_NLG_FORMATS + filename + '.rlg', './' + DIR_PATH_OUTPUT + filename + '.rlg')
+    rlg = open( DIR_PATH_OUTPUT + filename + '.rlg', "r+b" )
     vertex_num = 0
 
     for i in old_vertices:
@@ -660,7 +664,7 @@ def print_misc_data_to_file(rlg):
     filename = os.path.basename(rlg.name)
     data = get_rlg_dict(rlg)
 
-    txt = open("output/" +filename+ "_miscdata.txt", "w")
+    txt = open( DIR_PATH_OUTPUT + filename + "_miscdata.txt", "w" )
 
     txt.write( "4x4 MATRIX:\n" )
     for row in data['matrix']:
@@ -734,25 +738,25 @@ while True:
     # check response and execute if it's a valid command
     if(r == "e"):
         for i in filenames:
-            rlg = open("rlg/" + i, "rb")
+            rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
             create_obj( rlg )
             rlg.close()
 
     elif(r == "g"):
         for i in filenames:
-            rlg = open("rlg/" + i, "rb")
+            rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
             generate_new_rlg( rlg )
             rlg.close()
 
     elif(r == "es"):
         for i in filenames:
-            rlg = open("rlg/" + i, "rb")
+            rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
             create_obj( rlg, split_files_by_group=True )
             rlg.close()
         
     elif(r == "d"):
         for i in filenames:
-            rlg = open("rlg/" + i, "rb")
+            rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
             print_misc_data_to_file( rlg )
             rlg.close()
     
