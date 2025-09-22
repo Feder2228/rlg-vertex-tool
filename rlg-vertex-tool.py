@@ -798,6 +798,7 @@ def create_dae( model, filename_root ):
                 dae.write( str(index) + ' ' )  # vertex position index
                 dae.write( str(index) + ' ' )  # vertex normal index
                 dae.write( str(index) + ' ' )  # vertex color index
+                dae.write( str(index) + ' ' )  # vertex uv coord index
 
         dae.write( '</p>\n' )
 
