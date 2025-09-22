@@ -964,7 +964,7 @@ def create_dae( model, filename_root ):
 # read dae and return a dict of its information
 def read_dae( dae ):
 
-    dict_thing = {
+    dict_thing = {  # TODO: use a custom class instead of dict
         'matrix' : [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
         'model_data' : None, 
         'meshes' : []
@@ -984,7 +984,7 @@ def read_dae( dae ):
     # loop through all geometry tags
     geometry_tags = xml_root_node.find_all_nodes( 'geometry' )
 
-    for geometry_tag in geometry_tags:
+    for i, geometry_tag in enumerate(geometry_tags):
         print( str( geometry_tag.name ) + " " + str( geometry_tag.attributes ) )
 
         # find triangles tag
@@ -1001,8 +1001,57 @@ def read_dae( dae ):
         source_tag = geometry_tag.find_node( None, { 'id' : positions_id } )
 
         # get the array of floats
-        array_of_floats = source_tag.find_node( 'float_array' ).content
-        print( "I FLOATS:\n" + array_of_floats )
+        array_of_floats_as_string = source_tag.find_node( 'float_array' ).content
+
+        vertex_positions = convert_string_to_list_of_numbers( array_of_floats_as_string, 3 )
+
+        print( "MESH" + str(i) + "\n" + str( vertex_positions ) + "\n\n" )
+
+        mesh_dict_thing = {
+            "mesh_data" : [],                     # raw mesh data
+            "index_data" : [],                    # raw index data (0 based, vertex ids are relative to beginning of mesh/group)
+            "vertex_attributes" : [],             # raw vertex attribute data
+            "vertices" : vertex_positions,                     # processed vertices
+            "faces" : []  
+        }
+
+        dict_thing['meshes'].append( mesh_dict_thing )
+
+    
+    return dict_thing
+
+
+def convert_string_to_list_of_numbers( string, stride = 1 ):
+
+    list_of_strings_raw = string.split(' ')
+    list_of_strings = []
+
+    # delete any empty string
+    for string in list_of_strings_raw:
+        if len(string) != 0:
+            list_of_strings.append( string )
+            
+
+    list_of_numbers = []
+
+    sublist = []
+
+    for i, string in enumerate(list_of_strings):
+
+        number = float( string )
+
+        if stride == 1:
+            list_of_numbers.append( number )
+        
+        else:
+            sublist.append( number )
+            
+            if i % stride == stride-1:
+                list_of_numbers.append( sublist )
+                sublist = []
+
+    return list_of_numbers
+
 
 
 
