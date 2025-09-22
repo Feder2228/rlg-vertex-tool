@@ -191,12 +191,13 @@ def adjust_normals_for_dae( tri, geometry ):
 
 
 # MISC UTILITY FUNCTIONS
-# Function to convert a bytearray into a string where the each byte corresponds to two hexadecimal digits (in ascii)
+# Function to convert a bytearray into a string where each byte corresponds to two hexadecimal digits (in ascii)
 def byte_hex_str(bytes):
     string = ""
     for i in bytes:
         string += byte_hex(i)
     return string
+
 
 def byte_hex(byte):
     upper4 = (byte & 0xf0) >> 4 
@@ -204,18 +205,23 @@ def byte_hex(byte):
     chars = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f']
     return (chars[upper4] + chars[lower4])
 
-# Function that scans the rlg folder for files and returns a list containing all the file names
-def get_all_rlg_filenames():
 
-    filenames_r = glob.glob("./rlg/*.rlg")
+# Function that scans a folder for files and returns a list containing all the file names
+def get_all_filenames_of_specified_extension( dir_path, extension ):
+
+    filenames_r = glob.glob( "./{0}*{1}".format( dir_path, extension )  )
     filenames = []
 
-    print("found", str(len(filenames_r)), "rlg files:")
+    print("found", str(len(filenames_r)), "files:")  # TODO: this print shouldn't be here
+
     for i in filenames_r:
+
         file = re.split("\\\\", i)[1]
         print(file)
         filenames.append(file)
+
     return filenames
+
 
 def bytes_to_float(bytes):
     return struct.unpack( '!f', bytes )[0]
@@ -532,7 +538,7 @@ def get_matrix_from_rlg(rlg):
 # Dict that has the following keys: "model_data", "meshes"
 # "meshes" is a list of dicts, each of which contain data of a group/mesh: "mesh_data", "index_data", "vertex_attributes", "vertices", "faces"
 # For more info look at the comments next to the last "append" in this function
-def get_rlg_dict(rlg):
+def read_rlg(rlg):
 
     data = {
         'matrix' : get_matrix_from_rlg(rlg),
@@ -600,7 +606,7 @@ def create_obj( rlg, split_files_by_group = False ):
         filename = filename_root
         obj = open( DIR_PATH_OUTPUT + filename + ".obj", "w" )
 
-    groups = get_rlg_dict( rlg )['meshes']
+    groups = read_rlg( rlg )['meshes']
 
 
     # iterate on all the rlg's groups (meshes) and save their data in obj format
@@ -874,6 +880,73 @@ def create_dae( model, filename_root ):
 
 
 
+# read dae and return a dict of its information
+def read_dae( dae ):
+
+    # matrix that keeps track of opened tags.
+    # each element is a list containing the name of the tag and a dict containing its attributes
+    tag_stack = []  
+
+    file_str = dae.read()
+    pos = 0
+
+    for i in range(20):
+        tag = parse_first_xml_tag( file_str[pos:] )
+        pos += tag['length'] + tag['offset']
+
+
+# read the string and find the first xml tag
+# return: a dict containing:
+# tag name
+# a dict of attributes
+# a bool that is true if it's a closing tag </like_this>
+# a bool, false if it's a tag that has no body <like_this/> it needs to have the slash at the end!
+# an integer, length of the tag.
+# an integer, offset of the tag from the beginning of the string. The place where the tag starts in the string
+def parse_first_xml_tag( text ): 
+
+    REGEX_TAG = r'<.*>'
+    REGEX_NAME_FOR_OPENING_OR_BODYLESS_TAG = r'(?<=<)[^\s>\/]+(?=[>\s\/])' 
+    REGEX_NAME_FOR_CLOSING_TAG = r'(?<=<)\/[^\s>\/]+(?=[>\s])'
+
+    tag_match = re.search( REGEX_TAG, text )  # string containing just the tag, delimited by <>
+    tag = tag_match.group()
+    tag_offset = tag_match.span()[0]  # position of the tag into the string
+
+    tag_name = ""
+    is_closing_tag = False
+
+    opening_tag_name_match = re.search( REGEX_NAME_FOR_OPENING_OR_BODYLESS_TAG, tag )
+
+    if( opening_tag_name_match != None ):
+        print( "DEBUG: found a opening tag " + opening_tag_name_match.group() + "\n" )
+        tag_name = opening_tag_name_match.group()
+
+    else:
+        closing_tag_name_match = re.search( REGEX_NAME_FOR_CLOSING_TAG, tag )
+
+        if( closing_tag_name_match != None ):
+            print( "DEBUG: found a closing tag " + closing_tag_name_match.group() + "\n"  )
+            tag_name = closing_tag_name_match.group()
+            is_closing_tag = True
+
+        else:
+            print( "DEBUG: found nothing, huh" )
+
+
+    return_dict = {
+        'name' : tag_name,
+        'attributes' : {},
+        'is_closing_tag' : is_closing_tag,
+        'has_body' : True,
+        'length' : len( tag ),
+        'offset' : tag_offset
+    }
+
+    return return_dict
+
+
+
 def get_vertices_from_obj(filename):
     print("filename: " +filename)
     obj = open( DIR_PATH_INPUT_COMMON_FORMATS + filename + ".obj", "r" )
@@ -978,7 +1051,7 @@ def generate_new_rlg(original_rlg):
 def print_misc_data_to_file(rlg):
 
     filename = os.path.basename(rlg.name)
-    data = get_rlg_dict(rlg)
+    data = read_rlg(rlg)
 
     txt = open( DIR_PATH_OUTPUT + filename + "_miscdata.txt", "w" )
 
@@ -1048,38 +1121,43 @@ while True:
     if(r == "x"):
         exit()
 
-    filenames = get_all_rlg_filenames()
-
+    rlg_filenames = get_all_filenames_of_specified_extension( DIR_PATH_INPUT_NLG_FORMATS, ".rlg" )
+    dae_filenames = get_all_filenames_of_specified_extension( DIR_PATH_INPUT_COMMON_FORMATS, ".dae" )
 
     # check response and execute if it's a valid command
-    if(r == "e"):
-        for i in filenames:
+    if(r == "eobj"):
+        for i in rlg_filenames:
             rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
             create_obj( rlg )
             rlg.close()
 
-    elif(r == "g"):
-        for i in filenames:
+    elif(r == "gobj"):
+        for i in rlg_filenames:
             rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
             generate_new_rlg( rlg )
             rlg.close()
 
-    elif(r == "es"):
-        for i in filenames:
+    elif(r == "eobjs"):
+        for i in rlg_filenames:
             rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
             create_obj( rlg, split_files_by_group=True )
             rlg.close()
         
     elif(r == "d"):
-        for i in filenames:
+        for i in rlg_filenames:
             rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
             print_misc_data_to_file( rlg )
             rlg.close()
 
-    elif(r == "dae"):
-        for i in filenames:
+    elif(r == "e"):
+        for i in rlg_filenames:
             rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
-            create_dae( get_rlg_dict(rlg), i.split(".")[0] )
+            create_dae( read_rlg(rlg), i.split(".")[0] )
+
+    elif(r == "g"):
+        for i in dae_filenames:
+            dae = open( DIR_PATH_INPUT_COMMON_FORMATS + i, "r" )
+            read_dae( dae )
     
     elif(r == "help"):
         print( PROMPT_STR_HELP + "\n")
