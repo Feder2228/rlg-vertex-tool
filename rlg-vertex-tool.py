@@ -91,6 +91,31 @@ REGEX_ATTRIBUTE_VALUE = r'(?<==")[^"]+(?=")'
 REGEX_IS_TAG_BODYLESS = r'\/[\s]*>'
 
 
+# CLASSES
+class Xml_node:
+    def __init__( self, name, attributes, has_body, content ):
+        self.name = name
+        self.attributes = attributes
+        self.has_body = has_body
+        self.content = content
+        self.children = []
+    
+    def append_child( self, new_child ):
+        self.children.append( new_child )
+
+    # returns a string containing a tree of tag names
+    def get_string_tree_of_names( self ):
+        return self.get_string_tree_of_names_rec( 0 )
+
+    def get_string_tree_of_names_rec( self, level ):
+        children_tree_of_names = ""
+        for child in self.children:
+            children_tree_of_names += child.get_string_tree_of_names_rec( level+1 )
+        return (" "*level) + self.name + "\n" + children_tree_of_names
+
+
+
+
 # RLG UTILITY FUNCTIONS
 def rlg_get_size(rlg):
     rlg.seek(0,2)
@@ -891,17 +916,57 @@ def create_dae( model, filename_root ):
 
 # read dae and return a dict of its information
 def read_dae( dae ):
+    xml_root_node = get_xml_tree( dae )
 
-    # matrix that keeps track of opened tags.
-    # each element is a list containing the name of the tag and a dict containing its attributes
+    print( xml_root_node.get_string_tree_of_names() )
+
+    print( str( xml_root_node.children ) )
+
+# get a tree of nodes from an xml file
+def get_xml_tree( dae ):
+    # list that keeps track of opened tags.
+    # each element is a Xml_node object
     tag_stack = []  
 
     file_str = dae.read()
     pos = 0
 
-    for i in range(20):
+    root_node = None
+
+    for i in range(25):
+
+        # get the next xml tag
         tag = parse_first_xml_tag( file_str[pos:] )
-        pos += tag['length'] + tag['offset']  #
+
+        pos += tag['length'] + tag['offset']  # update position (move to the end of the tag that was just found)
+
+
+        # if you found a closing tag, remove last tag from the stack
+        if( tag['is_closing_tag'] ):
+            tag_stack.pop()  
+
+        # if you found an opening tag...
+        else:
+            # make an Xml_node out of it
+            xml_node = Xml_node( tag['name'], tag['attributes'], tag['has_body'], '' )
+
+            # if the stack isn't empty, this tag is a child of the node at the top of the stack
+            if len( tag_stack ) > 0:
+                tag_stack[-1].append_child( xml_node ) 
+            
+            # if the stack is empty, this node has no parents, so it's the root node (unless it doesn't have a body, in that case it's just the ?xml tag)
+            elif tag['has_body']:
+                root_node = xml_node
+
+            # put the current node in the stack if it has a body. We'll need it for the next iteration
+            if tag['has_body']:
+                tag_stack.append( xml_node )
+
+            for node in tag_stack:
+                print( "DEBUG: stack " + str( node.name ) )
+            print( "DEBUG: stack_size " + str( len(tag_stack) ) ) 
+    
+    return root_node
 
 
 # read the string and find the first xml tag
@@ -949,16 +1014,25 @@ def parse_first_xml_tag( text ):
     # detect if it's a tag that has no body (like this: <img/> )
     has_body = False
 
-    bodyless_match = re.search( REGEX_IS_TAG_BODYLESS, tag )
+    if tag_name == '?xml':
 
-    if bodyless_match == None:
-        has_body = True  # if the regex doesn't match, this means it's a tag that ends in "/>" or such, so it has a body
+        has_body = False
+
+    else:
+
+        bodyless_match = re.search( REGEX_IS_TAG_BODYLESS, tag )
+
+        if bodyless_match == None:
+
+            has_body = True  # if the regex doesn't match, this means it's NOT a tag that ends in "/>" or such, so it has a body
+
     print('DEBUG: body: ' + str(has_body) )
 
 
     returned_dict = {
         'name' : tag_name,
         'attributes' : attributes,
+        'content' : "",
         'is_closing_tag' : is_closing_tag,
         'has_body' : has_body,
         'length' : len( tag ),
@@ -987,7 +1061,6 @@ def get_xml_tag_attributes( text ):
         attributes.update( { matches[0].group() : matches[1].group() } )
 
         pos += matches[1].span()[1] + 1 # find the end of the tag value. Start parsing next one from there
-        print( "DEBUG: text[pos:] " + text[pos:] )
 
     return attributes
 
