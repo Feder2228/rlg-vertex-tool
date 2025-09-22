@@ -261,31 +261,35 @@ def get_vertices_from_rlg( rlg ):
             
             offset = vertex_attributes[ i*10 + 2 ]['offset']
             rlg.seek( start_of_data + offset + (j*4), 0 )
-            attribute_0xcc = [ bytes_to_float( rlg.read(4) ) ]
+            attribute_0xcc = [ int.from_bytes( rlg.read(2), "big" ) / 1024,
+                               int.from_bytes( rlg.read(2), "big" ) / 1024 ]
 
             offset = vertex_attributes[ i*10 + 3 ]['offset']
             rlg.seek( start_of_data + offset + (j*4), 0 )
-            attribute_0xed = [ bytes_to_float( rlg.read(4) ) ]
+            attribute_0xed = [ int.from_bytes( rlg.read(4), "big" ) ]
 
             offset = vertex_attributes[ i*10 + 4 ]['offset']
             rlg.seek( start_of_data + offset + (j*4), 0 )
-            attribute_0x52 = [ bytes_to_float( rlg.read(4) ) ]
+            attribute_0x52 = [ int.from_bytes( rlg.read(4), "big" ) ]
 
             offset = vertex_attributes[ i*10 + 5 ]['offset']
             rlg.seek( start_of_data + offset + (j*4), 0 )
-            attribute_0xc0 = [ bytes_to_float( rlg.read(4) ) ]
+            attribute_0xc0 = [ int.from_bytes( rlg.read(4), "big" ) ]
 
             offset = vertex_attributes[ i*10 + 6 ]['offset']
             rlg.seek( start_of_data + offset + (j*4), 0 )
-            attribute_0xd6 = [ bytes_to_float( rlg.read(4) ) ]
+            attribute_0xd6 = [ int.from_bytes( rlg.read(4), "big" ) ]
 
             offset = vertex_attributes[ i*10 + 7 ]['offset']
             rlg.seek( start_of_data + offset + (j*4), 0 )
-            attribute_0xd7 = [ bytes_to_float( rlg.read(4) ) ]
+            attribute_0xd7 = [ int.from_bytes( rlg.read(4), "big" ) ]
 
             offset = vertex_attributes[ i*10 + 8 ]['offset']
             rlg.seek( start_of_data + offset + (j*4), 0 )
-            attribute_0xd4 = [ bytes_to_float( rlg.read(4) ) ]
+            attribute_0xd4 = [ int.from_bytes( rlg.read(1), "big" ),
+                               int.from_bytes( rlg.read(1), "big" ),
+                               int.from_bytes( rlg.read(1), "big" ),
+                               int.from_bytes( rlg.read(1), "big" ) ]
 
             offset = vertex_attributes[ i*10 + 9 ]['offset']
             rlg.seek( start_of_data + offset + (j*16), 0 )
@@ -301,14 +305,14 @@ def get_vertices_from_rlg( rlg ):
                 "group" : i,
                 "position" : position,
                 "normal" : normal,
-                "attribute_0xcc" : attribute_0xcc,
+                "uv0" : attribute_0xcc,
                 "attribute_0xed" : attribute_0xed,
                 "attribute_0x52" : attribute_0x52,
                 "attribute_0xc0" : attribute_0xc0,
                 "attribute_0xd6" : attribute_0xd6,
                 "attribute_0xd7" : attribute_0xd7,
-                "attribute_0xd4" : attribute_0xd4,
-                "attribute_0xb0" : attribute_0xb0,
+                "bone_ids" : attribute_0xd4,
+                "bone_weights" : attribute_0xb0,
             } )
 
             current_byte = rlg.tell() - start_of_data
@@ -679,21 +683,23 @@ def create_dae( model, filename_root ):
         dae.write( ( TAB * tab_count ) + '<mesh>\n' )
         tab_count += 1
 
-        # iteration 0 is for positions, 1 is for normals, 2 is for vertex colors
-        for j in range(3):
+        # iteration 0 is for positions, 1 is for normals, 2 is for vertex colors, 3 is for uv coords
+        for j in range(4):
             
             # open source tag
-            id = geometry_name + ['-mesh-position', '-mesh-normal', '-mesh-color' ][j]
+            id = geometry_name + ['-mesh-position', '-mesh-normal', '-mesh-color', '-mesh-texcoord' ][j]
             dae.write( ( TAB * tab_count ) + DAE_STR_SOURCE_TEMPLATE.format( id ) + '\n' )
             tab_count += 1
 
             # open and close float array tag
-            id = geometry_name + ['-mesh-position', '-mesh-normal', '-mesh-color' ][j] + '-array'
+            id = geometry_name + ['-mesh-position', '-mesh-normal', '-mesh-color', '-mesh-texcoord' ][j] + '-array'
 
             if j in [0,1]:
                 float_count = int( geometry['mesh_data']['vertex_count'], 16 ) * 3  # TODO: strides won't always work like this. Fix in the future
-            else:
+            elif j == 2:
                 float_count = int( geometry['mesh_data']['vertex_count'], 16 ) * 4
+            else:
+                float_count = int( geometry['mesh_data']['vertex_count'], 16 ) * 2
 
             dae.write( ( TAB * tab_count ) + DAE_STR_FLOAT_ARRAY_TEMPLATE.format( id, float_count ) )
 
@@ -703,8 +709,10 @@ def create_dae( model, filename_root ):
                     dae.write( '{0} {1} {2} '.format( vertex['position'][0], vertex['position'][1], vertex['position'][2] ) )
                 elif j == 1:
                     dae.write( '{0} {1} {2} '.format( vertex['normal'][0], vertex['normal'][1], vertex['normal'][2] ) )
-                else:
+                elif j == 2:
                     dae.write( '1 1 1 1 ' )
+                else:
+                    dae.write( '{0} {1} '.format( vertex['uv0'][0], 1 - vertex['uv0'][1] ) )  # the v coordinate is flipped
 
             dae.write( '</float_array>\n' )
 
@@ -713,13 +721,15 @@ def create_dae( model, filename_root ):
             tab_count += 1
 
             # open accessor tag
-            source = "#" + geometry_name + [ "-mesh-position-array", "-mesh-normal-array", "-mesh-color-array" ][j]
+            source = "#" + geometry_name + [ "-mesh-position-array", "-mesh-normal-array", "-mesh-color-array", "-texcoord-array" ][j]
             count = int( geometry['mesh_data']['vertex_count'], 16 )
 
             if j in [0,1]:
                 stride = 3
-            else:
+            elif j == 2:
                 stride = 4
+            else:
+                stride = 2
 
             dae.write( ( TAB * tab_count ) + DAE_STR_ACCESSOR_TEMPLATE.format( source, count, stride ) + '\n' )
             tab_count += 1
@@ -729,11 +739,14 @@ def create_dae( model, filename_root ):
                 dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "X", "float" ) + '\n')
                 dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "Y", "float" ) + '\n')
                 dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "Z", "float" ) + '\n')
-            else:
+            elif j == 2:
                 dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "R", "float" ) + '\n')
                 dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "G", "float" ) + '\n')
                 dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "B", "float" ) + '\n')
                 dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "A", "float" ) + '\n')
+            else:
+                dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "S", "float" ) + '\n')
+                dae.write( ( TAB * tab_count ) + DAE_STR_PARAM_TEMPLATE.format( "T", "float" ) + '\n')
 
             # close accessor tag
             tab_count -= 1
@@ -770,6 +783,8 @@ def create_dae( model, filename_root ):
         dae.write( ( TAB * tab_count ) + DAE_STR_INPUT_TEMPLATE_OFFSET.format( "NORMAL", source, 1 ) + '\n' )
         source = '#' + geometry_name + '-mesh-color'
         dae.write( ( TAB * tab_count ) + DAE_STR_INPUT_TEMPLATE_OFFSET_SET.format( "COLOR", source, 2, 0 ) + '\n' )
+        source = '#' + geometry_name + '-mesh-texcoord'
+        dae.write( ( TAB * tab_count ) + DAE_STR_INPUT_TEMPLATE_OFFSET_SET.format( "TEXCOORD", source, 3, 0 ) + '\n' )
 
         # p tag (array of indices)
         dae.write( ( TAB * tab_count ) + '<p>' )
@@ -994,7 +1009,7 @@ def print_misc_data_to_file(rlg):
         txt.write( "\nbiggest index of mesh: " + str(hex(max_index)) )
 
         txt.write( "\n\nVERTEX ATTRIBUTE:\n" )
-        for e in d['vertex_attribute']:
+        for e in d['vertex_attributes']:
             txt.write( str(e) + "\n" )
 
         txt.write( "\nVERTICES:\n" )
@@ -1004,14 +1019,14 @@ def print_misc_data_to_file(rlg):
             vertex_id += 1
             txt.write( str( e['position'] ) + "\n" )
             txt.write( str( e['normal'] ) + "\n" )
-            txt.write( str( e['attribute_0xcc'] ) + "\n" )
+            txt.write( str( e['uv0'] ) + "\n" )
             txt.write( str( e['attribute_0xed'] ) + "\n" )
             txt.write( str( e['attribute_0x52'] ) + "\n" )
             txt.write( str( e['attribute_0xc0'] ) + "\n" )
             txt.write( str( e['attribute_0xd6'] ) + "\n" )
             txt.write( str( e['attribute_0xd7'] ) + "\n" )
-            txt.write( str( e['attribute_0xd4'] ) + "\n" )
-            txt.write( str( e['attribute_0xb0'] ) + "\n" )
+            txt.write( str( e['bone_ids'] ) + "\n" )
+            txt.write( str( e['bone_weights'] ) + "\n" )
             txt.write( "\n" )
 
         txt.write( "\n\nFACES:\n" )
