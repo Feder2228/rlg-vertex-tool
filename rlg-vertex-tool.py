@@ -114,15 +114,20 @@ class Xml_node:
             children_tree_of_names += child.get_string_tree_of_names_rec( level+1 )
         return (" "*level) + self.name + "\n" + children_tree_of_names
     
-    # find nodes with matching information.
-    def find_matching_nodes( self, name, attributes = {} ): 
+    # find the first node that has matching information
+    def find_node( self, name, attributes = {} ):
+        return self.find_all_nodes( name, attributes )[0]
+    
+    # find nodes that have matching information.
+    def find_all_nodes( self, name, attributes = {} ): 
 
         is_match = True
 
         list_of_matches = []
 
         # if this tag doesn't have the specified name, no match
-        if self.name != name:
+        # if no name is specified, skip this check
+        if name != None and self.name != name:
             is_match = False
 
         # iterate on all the attributes that were passed to this function
@@ -149,7 +154,7 @@ class Xml_node:
         
         # look recursively for matches in child nodes
         for child in self.children:
-            matching_nodes = child.find_matching_nodes( name, attributes )
+            matching_nodes = child.find_all_nodes( name, attributes )
             if len( matching_nodes ) > 0:
                 list_of_matches.extend( matching_nodes )
 
@@ -958,14 +963,48 @@ def create_dae( model, filename_root ):
 
 # read dae and return a dict of its information
 def read_dae( dae ):
+
+    dict_thing = {
+        'matrix' : [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],
+        'model_data' : None, 
+        'meshes' : []
+    }
+
+    # generic element of meshes:
+    #    {
+    #        "mesh_data" :                      # raw mesh data
+    #        "index_data" :                     # raw index data (0 based, vertex ids are relative to beginning of mesh/group)
+    #        "vertex_attributes" :              # raw vertex attribute data
+    #        "vertices" :                       # processed vertices
+    #        "faces" :                          # processed faces (0 based, vertex ids are relative to beginning of mesh/group)
+    #    }
+
     xml_root_node = get_xml_tree( dae )
 
-    geometries = xml_root_node.find_matching_nodes( 'geometry' )
+    # loop through all geometry tags
+    geometry_tags = xml_root_node.find_all_nodes( 'geometry' )
 
-    for geometry in geometries:
-        print( str( geometry.name ) + " " + str( geometry.attributes ) )
+    for geometry_tag in geometry_tags:
+        print( str( geometry_tag.name ) + " " + str( geometry_tag.attributes ) )
 
-    # print( xml_root_node.get_string_tree_of_names() )
+        # find triangles tag
+        triangles_tag = geometry_tag.find_node( 'triangles' )
+
+        # get the id and look for a "vertices" tag that has that id
+        input_vertex_tag = triangles_tag.find_node( 'input', { 'semantic' : 'VERTEX' } )
+        vertices_id = input_vertex_tag.attributes[ 'source' ].replace( '#', '' )
+        vertices_tag = geometry_tag.find_node( None, { 'id' : vertices_id } )
+        
+        # get the id of the position and find where it is
+        input_tag = vertices_tag.find_node( 'input', { 'semantic' : 'POSITION' } )
+        positions_id = input_tag.attributes[ 'source' ].replace( '#', '' )
+        source_tag = geometry_tag.find_node( None, { 'id' : positions_id } )
+
+        # get the array of floats
+        array_of_floats = source_tag.find_node( 'float_array' ).content
+        print( "I FLOATS:\n" + array_of_floats )
+
+
 
 
 # get a tree of nodes from an xml file
@@ -1046,24 +1085,21 @@ def parse_first_xml_tag( text ):
     opening_tag_name_match = re.search( REGEX_NAME_FOR_OPENING_OR_BODYLESS_TAG, tag )
 
     if( opening_tag_name_match != None ):
-        print( "\nDEBUG: found a opening tag " + opening_tag_name_match.group() )
+
         tag_name = opening_tag_name_match.group()
 
     else:
         closing_tag_name_match = re.search( REGEX_NAME_FOR_CLOSING_TAG, tag )
 
         if( closing_tag_name_match != None ):
-            print( "\nDEBUG: found a closing tag " + closing_tag_name_match.group() )
+
             tag_name = closing_tag_name_match.group()
             is_closing_tag = True
 
-        else:
-            print( "\nDEBUG: found nothing, huh" )
 
 
     # get tag attributes
     attributes = get_xml_tag_attributes( tag )
-    print('DEBUG: attribs: ' + str(attributes) )
 
 
     # detect if it's a tag that has no body (like this: <img/> )
@@ -1081,8 +1117,6 @@ def parse_first_xml_tag( text ):
 
             has_body = True  # if the regex doesn't match, this means it's NOT a tag that ends in "/>" or such, so it has a body
 
-    print('DEBUG: body: ' + str(has_body) )
-
 
     # get the content of the tag
     content = ""
@@ -1092,7 +1126,6 @@ def parse_first_xml_tag( text ):
         # example: "tag> content"  becomes: " content "
         text_outside_angular_brackets = text_before_angular_open_bracket.split(">")[1]  
         content = text_outside_angular_brackets.replace( "\n", "" )  # strip all newline characters
-        print('DEBUG content: ' + content )
 
     returned_dict = {
         'name' : tag_name,
