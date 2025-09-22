@@ -114,10 +114,12 @@ class Xml_node:
             children_tree_of_names += child.get_string_tree_of_names_rec( level+1 )
         return (" "*level) + self.name + "\n" + children_tree_of_names
     
-    # find a node with matching information. Return the first occurrence found.
-    def find_node( self, name, attributes ): 
+    # find nodes with matching information.
+    def find_matching_nodes( self, name, attributes = {} ): 
 
         is_match = True
+
+        list_of_matches = []
 
         # if this tag doesn't have the specified name, no match
         if self.name != name:
@@ -141,18 +143,17 @@ class Xml_node:
             elif attributes[key] != self.attributes[key]:
                 is_match = False
 
-        # return this
+        # if this node is a match, add it to the match list
         if is_match:
-            return self
+            list_of_matches.append( self )
         
-        # if this node is not a match, look recursively for a matching child node
+        # look recursively for matches in child nodes
         for child in self.children:
-            matching_node = child.find_node( name, attributes )
-            if matching_node != None:
-                return matching_node
+            matching_nodes = child.find_matching_nodes( name, attributes )
+            if len( matching_nodes ) > 0:
+                list_of_matches.extend( matching_nodes )
 
-        # if neither this node or its children are a match, return None
-        return None
+        return list_of_matches
 
 
 
@@ -959,9 +960,10 @@ def create_dae( model, filename_root ):
 def read_dae( dae ):
     xml_root_node = get_xml_tree( dae )
 
-    node = xml_root_node.find_node( 'input', { 'semantic' : 'VERTEX' } )
+    geometries = xml_root_node.find_matching_nodes( 'geometry' )
 
-    print( str( node.attributes['source'] ) )
+    for geometry in geometries:
+        print( str( geometry.name ) + " " + str( geometry.attributes ) )
 
     # print( xml_root_node.get_string_tree_of_names() )
 
