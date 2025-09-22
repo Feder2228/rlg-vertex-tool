@@ -984,44 +984,91 @@ def read_dae( dae ):
     # loop through all geometry tags
     geometry_tags = xml_root_node.find_all_nodes( 'geometry' )
 
-    for i, geometry_tag in enumerate(geometry_tags):
-        print( str( geometry_tag.name ) + " " + str( geometry_tag.attributes ) )
+    vertex_absolute_id = 0
 
+    for i, geometry_tag in enumerate(geometry_tags):
+
+        # VERTICES
         # find triangles tag
         triangles_tag = geometry_tag.find_node( 'triangles' )
 
-        # get the id and look for a "vertices" tag that has that id
+        # get the ids for the tags we need
         input_vertex_tag = triangles_tag.find_node( 'input', { 'semantic' : 'VERTEX' } )
         vertices_id = input_vertex_tag.attributes[ 'source' ].replace( '#', '' )
+        input_normal_tag = triangles_tag.find_node( 'input', { 'semantic' : 'NORMAL' } )
+        normals_id = input_normal_tag.attributes[ 'source' ].replace( '#', '' )
+        input_texcoord_tag = triangles_tag.find_node( 'input', { 'semantic' : 'TEXCOORD' } )
+        texcoords_id = input_texcoord_tag.attributes[ 'source' ].replace( '#', '' )
+
+        # look for the vertices tag
         vertices_tag = geometry_tag.find_node( None, { 'id' : vertices_id } )
         
         # get the id of the position and find where it is
         input_tag = vertices_tag.find_node( 'input', { 'semantic' : 'POSITION' } )
         positions_id = input_tag.attributes[ 'source' ].replace( '#', '' )
+        
+        # get the array of floats for positions
         source_tag = geometry_tag.find_node( None, { 'id' : positions_id } )
-
-        # get the array of floats
         array_of_floats_as_string = source_tag.find_node( 'float_array' ).content
-
         vertex_positions = convert_string_to_list_of_numbers( array_of_floats_as_string, 3 )
 
-        print( "MESH" + str(i) + "\n" + str( vertex_positions ) + "\n\n" )
+        # get the array of floats for normals
+        source_tag = geometry_tag.find_node( None, { 'id' : normals_id } )
+        array_of_floats_as_string = source_tag.find_node( 'float_array' ).content
+        vertex_normals = convert_string_to_list_of_numbers( array_of_floats_as_string, 3 )
+
+        # get the array of floats for uv coordinates
+        source_tag = geometry_tag.find_node( None, { 'id' : texcoords_id } )
+        array_of_floats_as_string = source_tag.find_node( 'float_array' ).content
+        vertex_uvs = convert_string_to_list_of_numbers( array_of_floats_as_string, 2 )
+
+        vertices = []
+
+        for j, vertex_position in enumerate(vertex_positions):
+            vertex_absolute_id += 1
+            vertex =  {
+                    "absolute_id" : vertex_absolute_id,       # id TODO
+                    "relavtive_id" : j,      # id (relative to the start of the group)
+                    "offset" : 0,           # TODO
+                    "group" : i,
+                    "position" : vertex_position,
+                    "normal" : vertex_normals[j],
+                    "uv0" : vertex_uvs[j],
+                    "attribute_0xed" : 0,
+                    "attribute_0x52" : 0,
+                    "attribute_0xc0" : 0,
+                    "attribute_0xd6" : 0,
+                    "attribute_0xd7" : 0,
+                    "bone_ids" : [0,0,0,0],
+                    "bone_weights" : [0,0,0,0],
+                }
+            
+            vertices.append( vertex )
+
+
+        # TRIANGLES
+        array_of_ints_as_string = triangles_tag.find_node( 'p' ).content
+        triangles = convert_string_to_list_of_numbers( array_of_ints_as_string, 3, True )
+        # TODO: finish this
+
+        print(  )
+            
 
         mesh_dict_thing = {
             "mesh_data" : [],                     # raw mesh data
             "index_data" : [],                    # raw index data (0 based, vertex ids are relative to beginning of mesh/group)
             "vertex_attributes" : [],             # raw vertex attribute data
-            "vertices" : vertex_positions,                     # processed vertices
+            "vertices" : vertices,                     # processed vertices
             "faces" : []  
         }
 
         dict_thing['meshes'].append( mesh_dict_thing )
 
-    
+    print( "DEBUG: DICT: " + str(dict_thing) )
     return dict_thing
 
 
-def convert_string_to_list_of_numbers( string, stride = 1 ):
+def convert_string_to_list_of_numbers( string, stride = 1, to_integer = False ):
 
     list_of_strings_raw = string.split(' ')
     list_of_strings = []
@@ -1038,7 +1085,7 @@ def convert_string_to_list_of_numbers( string, stride = 1 ):
 
     for i, string in enumerate(list_of_strings):
 
-        number = float( string )
+        number = int( string, 10 ) if to_integer else float( string ) 
 
         if stride == 1:
             list_of_numbers.append( number )
