@@ -113,6 +113,46 @@ class Xml_node:
         for child in self.children:
             children_tree_of_names += child.get_string_tree_of_names_rec( level+1 )
         return (" "*level) + self.name + "\n" + children_tree_of_names
+    
+    # find a node with matching information. Return the first occurrence found.
+    def find_node( self, name, attributes ): 
+
+        is_match = True
+
+        # if this tag doesn't have the specified name, no match
+        if self.name != name:
+            is_match = False
+
+        # iterate on all the attributes that were passed to this function
+        # for this Xml_node object to be a match, it must have all those attribute keys, and they all need to have the same values
+        # it doesn't have to only have those keys. It can have other keys too    
+        #
+        # for example, the search: name="input", attributes={ 'semantic' : 'VERTEX' }
+        # matches the tag: <input semantic="VERTEX" source="#model-vertex" offset="0" />
+        # but doesn't match: <input semantic="NORMAL" source="#model-vertex" offset="0" /> because semantic is not 'VERTEX'
+        #
+        for key in attributes:
+
+            # if this node doesn't have this attribute key, no match
+            if key not in self.attributes:
+                is_match = False
+
+            # if this node has the this attribute key, but it's not associated to the same value, no match
+            elif attributes[key] != self.attributes[key]:
+                is_match = False
+
+        # return this
+        if is_match:
+            return self
+        
+        # if this node is not a match, look recursively for a matching child node
+        for child in self.children:
+            matching_node = child.find_node( name, attributes )
+            if matching_node != None:
+                return matching_node
+
+        # if neither this node or its children are a match, return None
+        return None
 
 
 
@@ -918,6 +958,10 @@ def create_dae( model, filename_root ):
 # read dae and return a dict of its information
 def read_dae( dae ):
     xml_root_node = get_xml_tree( dae )
+
+    node = xml_root_node.find_node( 'input', { 'semantic' : 'VERTEX' } )
+
+    print( str( node.attributes['source'] ) )
 
     # print( xml_root_node.get_string_tree_of_names() )
 
