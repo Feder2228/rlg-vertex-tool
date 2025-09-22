@@ -89,6 +89,7 @@ REGEX_NAME_FOR_CLOSING_TAG = r'(?<=<)\/[^\s>\/]+(?=[>\s])'
 REGEX_ATTRIBUTE_KEY = r'(?<=\s)[^\s=]+(?==)'
 REGEX_ATTRIBUTE_VALUE = r'(?<==")[^"]+(?=")'
 REGEX_IS_TAG_BODYLESS = r'\/[\s]*>'
+REGEX_CONTENT = r'[^>]*(?=<\/)'
 
 
 # CLASSES
@@ -918,9 +919,8 @@ def create_dae( model, filename_root ):
 def read_dae( dae ):
     xml_root_node = get_xml_tree( dae )
 
-    print( xml_root_node.get_string_tree_of_names() )
+    # print( xml_root_node.get_string_tree_of_names() )
 
-    print( str( xml_root_node.children ) )
 
 # get a tree of nodes from an xml file
 def get_xml_tree( dae ):
@@ -933,10 +933,15 @@ def get_xml_tree( dae ):
 
     root_node = None
 
-    for i in range(25):
+
+    while True:
 
         # get the next xml tag
         tag = parse_first_xml_tag( file_str[pos:] )
+
+        # when there are no more xml tags, return root_node
+        if tag == None:
+            return root_node
 
         pos += tag['length'] + tag['offset']  # update position (move to the end of the tag that was just found)
 
@@ -948,7 +953,7 @@ def get_xml_tree( dae ):
         # if you found an opening tag...
         else:
             # make an Xml_node out of it
-            xml_node = Xml_node( tag['name'], tag['attributes'], tag['has_body'], '' )
+            xml_node = Xml_node( tag['name'], tag['attributes'], tag['has_body'], tag['content'] )
 
             # if the stack isn't empty, this tag is a child of the node at the top of the stack
             if len( tag_stack ) > 0:
@@ -962,11 +967,11 @@ def get_xml_tree( dae ):
             if tag['has_body']:
                 tag_stack.append( xml_node )
 
-            for node in tag_stack:
-                print( "DEBUG: stack " + str( node.name ) )
-            print( "DEBUG: stack_size " + str( len(tag_stack) ) ) 
+            # for node in tag_stack:
+            #     print( "DEBUG: stack " + str( node.name ) )
+            # print( "DEBUG: stack_size " + str( len(tag_stack) ) ) 
     
-    return root_node
+    
 
 
 # read the string and find the first xml tag
@@ -979,7 +984,11 @@ def get_xml_tree( dae ):
 # an integer, offset of the tag from the beginning of the string. The place where the tag starts in the string
 def parse_first_xml_tag( text ): 
 
-    tag_match = re.search( REGEX_TAG, text )  # string containing just the tag, delimited by <>
+    tag_match = re.search( REGEX_TAG, text )  # tag_match: string containing just the tag, delimited by <>
+
+    if tag_match == None:
+        return None
+
     tag = tag_match.group()
     tag_offset = tag_match.span()[0]  # position of the tag into the string
 
@@ -1029,10 +1038,20 @@ def parse_first_xml_tag( text ):
     print('DEBUG: body: ' + str(has_body) )
 
 
+    # get the content of the tag
+    content = ""
+    if has_body and not is_closing_tag:
+        # example: "<tag> content <child_tag>"  becomes: "tag> content "
+        text_before_angular_open_bracket = text.split("<")[1]  
+        # example: "tag> content"  becomes: " content "
+        text_outside_angular_brackets = text_before_angular_open_bracket.split(">")[1]  
+        content = text_outside_angular_brackets.replace( "\n", "" )  # strip all newline characters
+        print('DEBUG content: ' + content )
+
     returned_dict = {
         'name' : tag_name,
         'attributes' : attributes,
-        'content' : "",
+        'content' : content,
         'is_closing_tag' : is_closing_tag,
         'has_body' : has_body,
         'length' : len( tag ),
