@@ -82,6 +82,15 @@ DAE_STR_INPUT_TEMPLATE_OFFSET_SET = '<input semantic="{0}" source="{1}" offset="
 DAE_STR_VERTICES_TEMPLATE = '<vertices id="{0}">'
 DAE_STR_TRIANGLES_TEMPLATE = '<triangles count="{0}">'
 
+# REGEX FOR XML PARSING
+REGEX_TAG = r'<[^>]*>'
+REGEX_NAME_FOR_OPENING_OR_BODYLESS_TAG = r'(?<=<)[^\s>\/]+(?=[>\s\/])' 
+REGEX_NAME_FOR_CLOSING_TAG = r'(?<=<)\/[^\s>\/]+(?=[>\s])'
+REGEX_ATTRIBUTE_KEY = r'(?<=\s)[^\s=]+(?==)'
+REGEX_ATTRIBUTE_VALUE = r'(?<==")[^"]+(?=")'
+REGEX_IS_TAG_BODYLESS = r'\/[\s]*>'
+
+
 # RLG UTILITY FUNCTIONS
 def rlg_get_size(rlg):
     rlg.seek(0,2)
@@ -892,7 +901,7 @@ def read_dae( dae ):
 
     for i in range(20):
         tag = parse_first_xml_tag( file_str[pos:] )
-        pos += tag['length'] + tag['offset']
+        pos += tag['length'] + tag['offset']  #
 
 
 # read the string and find the first xml tag
@@ -905,45 +914,96 @@ def read_dae( dae ):
 # an integer, offset of the tag from the beginning of the string. The place where the tag starts in the string
 def parse_first_xml_tag( text ): 
 
-    REGEX_TAG = r'<.*>'
-    REGEX_NAME_FOR_OPENING_OR_BODYLESS_TAG = r'(?<=<)[^\s>\/]+(?=[>\s\/])' 
-    REGEX_NAME_FOR_CLOSING_TAG = r'(?<=<)\/[^\s>\/]+(?=[>\s])'
-
     tag_match = re.search( REGEX_TAG, text )  # string containing just the tag, delimited by <>
     tag = tag_match.group()
     tag_offset = tag_match.span()[0]  # position of the tag into the string
 
+
+    # detect tag name and detect whether it's a closing or opening tag
     tag_name = ""
     is_closing_tag = False
 
     opening_tag_name_match = re.search( REGEX_NAME_FOR_OPENING_OR_BODYLESS_TAG, tag )
 
     if( opening_tag_name_match != None ):
-        print( "DEBUG: found a opening tag " + opening_tag_name_match.group() + "\n" )
+        print( "\nDEBUG: found a opening tag " + opening_tag_name_match.group() )
         tag_name = opening_tag_name_match.group()
 
     else:
         closing_tag_name_match = re.search( REGEX_NAME_FOR_CLOSING_TAG, tag )
 
         if( closing_tag_name_match != None ):
-            print( "DEBUG: found a closing tag " + closing_tag_name_match.group() + "\n"  )
+            print( "\nDEBUG: found a closing tag " + closing_tag_name_match.group() )
             tag_name = closing_tag_name_match.group()
             is_closing_tag = True
 
         else:
-            print( "DEBUG: found nothing, huh" )
+            print( "\nDEBUG: found nothing, huh" )
 
 
-    return_dict = {
+    # get tag attributes
+    attributes = get_xml_tag_attributes( tag )
+    print('DEBUG: attribs: ' + str(attributes) )
+
+
+    # detect if it's a tag that has no body (like this: <img/> )
+    has_body = False
+
+    bodyless_match = re.search( REGEX_IS_TAG_BODYLESS, tag )
+
+    if bodyless_match == None:
+        has_body = True  # if the regex doesn't match, this means it's a tag that ends in "/>" or such, so it has a body
+    print('DEBUG: body: ' + str(has_body) )
+
+
+    returned_dict = {
         'name' : tag_name,
-        'attributes' : {},
+        'attributes' : attributes,
         'is_closing_tag' : is_closing_tag,
-        'has_body' : True,
+        'has_body' : has_body,
         'length' : len( tag ),
         'offset' : tag_offset
     }
 
-    return return_dict
+    return returned_dict
+
+
+
+
+def get_xml_tag_attributes( text ):
+
+    pos = 0
+
+    attributes = {}
+
+    while True:
+
+        matches = match_first_attribute_of_xml_tag( text[pos:] )
+
+        # if the attributes are over, break out of the loop
+        if matches == None:
+            break
+
+        attributes.update( { matches[0].group() : matches[1].group() } )
+
+        pos += matches[1].span()[1] + 1 # find the end of the tag value. Start parsing next one from there
+        print( "DEBUG: text[pos:] " + text[pos:] )
+
+    return attributes
+
+
+# return match objects for the attribute key and attribute value
+def match_first_attribute_of_xml_tag( text ):
+
+    attribute_key_match = re.search( REGEX_ATTRIBUTE_KEY, text )
+
+    attribute_value_match = re.search( REGEX_ATTRIBUTE_VALUE, text )
+
+    if( attribute_key_match == None ):
+        return None
+
+    return [ attribute_key_match, attribute_value_match ]
+
 
 
 
