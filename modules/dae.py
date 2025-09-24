@@ -61,11 +61,11 @@ def create_dae( model, filepath ):
             id = geometry_name + ['-mesh-position', '-mesh-normal', '-mesh-color', '-mesh-texcoord' ][j] + '-array'
 
             if j in [0,1]:
-                float_count = int( geometry.mesh_data.vertex_count, 16 ) * 3  # TODO: strides won't always work like this. Fix in the future
+                float_count = geometry.mesh_data.vertex_count * 3  # TODO: strides won't always work like this. Fix in the future
             elif j == 2:
-                float_count = int( geometry.mesh_data.vertex_count, 16 ) * 4
+                float_count = geometry.mesh_data.vertex_count * 4
             else:
-                float_count = int( geometry.mesh_data.vertex_count, 16 ) * 2
+                float_count = geometry.mesh_data.vertex_count * 2
 
             daefile.write( ( TAB * tab_count ) + DAE_STR_FLOAT_ARRAY_TEMPLATE.format( id, float_count ) )
 
@@ -88,7 +88,7 @@ def create_dae( model, filepath ):
 
             # open accessor tag
             source = "#" + geometry_name + [ "-mesh-position-array", "-mesh-normal-array", "-mesh-color-array", "-texcoord-array" ][j]
-            count = int( geometry.mesh_data.vertex_count, 16 )
+            count = geometry.mesh_data.vertex_count
 
             stride = [ 3, 3, 4, 2 ][j]
 
@@ -301,7 +301,7 @@ def read_dae( filepath ):
         triangles = str_to_num_list( array_of_ints_as_string, 3, True )
         # TODO: finish this
 
-        new_mesh = ( [], [], [], vertices, [] )
+        new_mesh = m3d.Mesh( [], [], [], vertices, [] )
 
         model3d.meshes.append( new_mesh )
 

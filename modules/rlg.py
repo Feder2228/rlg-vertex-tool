@@ -1,4 +1,5 @@
 import os
+import shutil
 from modules import m3d, util
 
 # SECTION IDENTIFIER CONSTANTS
@@ -25,6 +26,105 @@ VERTEX_ATTRIBUTE_TYPE_7 = 0xd6
 VERTEX_ATTRIBUTE_TYPE_8 = 0xd7
 VERTEX_ATTRIBUTE_TYPE_9 = 0xd4
 VERTEX_ATTRIBUTE_TYPE_10 = 0xb0
+
+
+# Read rlg file. Returns model3d object
+def read_rlg( filepath ):
+
+    print( "DEBUG: " + filepath )
+
+    rlgfile = open( filepath, "rb" )
+
+    model3d = m3d.Model3d( get_matrix_from_rlg( rlgfile ), get_model_data_from_rlg( rlgfile ), [] )
+      
+    
+    # Read data
+    mesh_data = get_mesh_data_from_rlg( rlgfile )
+    index_data = get_index_data_from_rlg( rlgfile )
+    vertex_attributes = get_vertex_attributes_from_rlg_split_by_group( rlgfile )
+    vertices = get_vertices_from_rlg_split_by_group( rlgfile )
+
+
+    # Loop through groups
+    for i, mesh_data_instance in enumerate(mesh_data):
+
+        # Split index data by group
+        index_data_end = mesh_data_instance.index_start_offset + ( (mesh_data_instance.index_count) * 2 )
+        index_data_of_this_mesh = []
+
+        for j in range( mesh_data_instance.index_start_offset//2, index_data_end//2 ): 
+
+            print( "DEBUG:" + str(i) + ", " + str(j) )
+            index_data_of_this_mesh.append( index_data[j] )
+
+
+        # Faces
+        faces_of_this_mesh = []
+
+        for j, index in enumerate( index_data_of_this_mesh ):
+
+            if( j < 2 ):
+                continue
+            
+            # check if three adjacent indices are all different. If so, that's a face
+            tri = index_data_of_this_mesh[ (j - 2) : (j + 1) ]
+            if( tri[0] != tri[1] and tri[1] != tri[2] and tri[0] != tri[2] ):
+
+                confirmed_tri = m3d.Face( tri )
+
+                faces_of_this_mesh.append( confirmed_tri )
+
+
+        new_mesh = m3d.Mesh( mesh_data_instance, index_data, vertex_attributes[ i ], vertices[ i ], faces_of_this_mesh )
+
+        # Add data to array
+        model3d.meshes.append( new_mesh )
+
+    rlgfile.close()
+    return model3d
+
+
+
+
+# replace part of an rlg file's data with the model3d object data
+def patch_rlg( srcpath, dstpath, new_model3d ):
+
+    # get the data of the original rlg file as a model3d object
+    old_model3d = read_rlg( srcpath )
+
+    # copy the rlg file and open it
+    shutil.copyfile( srcpath, dstpath )
+    rlgfile = open( dstpath, "r+b" )
+
+    # get location of the vertex section
+    start_of_data = rlg_get_section_info( rlgfile, SECTION_VERTEX_DATA )['start_of_data']
+
+    # loop through every mesh of the file's model
+    for i, mesh in enumerate( old_model3d.meshes ):
+
+        # get the offset and vertex count of the vertex section
+        offset = mesh.vertex_attributes[ 0 ].offset
+        vertex_count = mesh.mesh_data.vertex_count
+
+        # take the new vertices
+        new_vertices = new_model3d.meshes[ i ].vertices
+
+        # go to the place where vertices are stored
+        rlgfile.seek( start_of_data + offset, 0 )
+
+        # loop to replace all the vertex positions
+        for j in range( vertex_count ):
+
+            # take a new vertex, then loop on its coordinates and replace all of them
+            new_vertex = new_vertices[ j ]
+
+            for coord in new_vertices[ j ].position:
+                new_bytes = util.float_to_bytes( coord )
+                rlgfile.write( new_bytes )
+
+
+
+
 
 
 def rlg_get_size(rlg):
@@ -80,7 +180,7 @@ def get_vertices_from_rlg( rlg ):
         
         relative_id = 0
 
-        for j in range( int( mesh.vertex_count, 16 ) ):  # TODO: I shouldn't have to cast vertex_count to int here
+        for j in range( mesh.vertex_count ):  
             
             offset = vertex_attributes[ i*10 ].offset  
             rlg.seek( start_of_data + offset + (j*12), 0 )
@@ -276,7 +376,7 @@ def get_mesh_data_from_rlg(rlg):
         unknown_0x26 = int.from_bytes( rlg.read(4), "big" )
         unknown_0x2a = int.from_bytes( rlg.read(6), "big" )
 
-        new_mesh_data_instance = m3d.MeshData( index_start_offset, index_flags & 0xffffff, index_flags >> 24, hex(vertex_count),  # TODO: nuh-uh
+        new_mesh_data_instance = m3d.MeshData( index_start_offset, index_flags & 0xffffff, index_flags >> 24, vertex_count,
                  unknown_0x0a, material_hash_id, unknown_0x16, unknown_0x1a, mesh_hash_id,  material_offset, unknown_0x22,
                  unknown_0x26, unknown_0x2a,   
         )
@@ -330,61 +430,3 @@ def get_matrix_from_rlg(rlg):
 
 
     return matrix
-
-
-
-
-
-# Read rlg file. Returns model3d object
-def read_rlg( filepath ):
-
-    rlgfile = open( filepath, "rb" )
-
-    model3d = m3d.Model3d( get_matrix_from_rlg( rlgfile ), get_model_data_from_rlg( rlgfile ), [] )
-      
-    
-    # Read data
-    mesh_data = get_mesh_data_from_rlg( rlgfile )
-    index_data = get_index_data_from_rlg( rlgfile )
-    vertex_attributes = get_vertex_attributes_from_rlg_split_by_group( rlgfile )
-    vertices = get_vertices_from_rlg_split_by_group( rlgfile )
-
-
-    # Loop through groups
-    for i, mesh_data_instance in enumerate(mesh_data):
-
-        # Split index data by group
-        index_data_end = mesh_data_instance.index_start_offset + ( (mesh_data_instance.index_count) * 2 )
-        index_data_of_this_mesh = []
-
-        for j in range( mesh_data_instance.index_start_offset//2, index_data_end//2 ): 
-
-            print( "DEBUG:" + str(i) + ", " + str(j) )
-            index_data_of_this_mesh.append( index_data[j] )
-
-
-        # Faces
-        faces_of_this_mesh = []
-
-        for j, index in enumerate( index_data_of_this_mesh ):
-
-            if( j < 2 ):
-                continue
-            
-            # check if three adjacent indices are all different. If so, that's a face
-            tri = index_data_of_this_mesh[ (j - 2) : (j + 1) ]
-            if( tri[0] != tri[1] and tri[1] != tri[2] and tri[0] != tri[2] ):
-
-                confirmed_tri = m3d.Face( tri )
-
-                faces_of_this_mesh.append( confirmed_tri )
-
-
-        new_mesh = m3d.Mesh( mesh_data_instance, index_data, vertex_attributes[ i ], vertices[ i ], faces_of_this_mesh )
-
-        # Add data to array
-        model3d.meshes.append( new_mesh )
-
-    rlgfile.close()
-    return model3d
-

@@ -47,9 +47,10 @@ class Model3d:
         self.meshes = meshes
     def __str__( self ):
         output = STR_MATRIX.format( self.matrix_data, str( self.model_data ) )
-        for i, model in enumerate( self.model_data ):
-            output += "MODEL {0}:\n\n".format( str(i) )
-            output += str( model ) + '\n\n\n\n'
+        if self.model_data != None:
+            for i, model in enumerate( self.model_data ):
+                output += "MODEL {0}:\n\n".format( str(i) )
+                output += str( model ) + '\n\n\n\n'
         for i, mesh in enumerate( self.meshes ):
             output += "MESH {0}:\n\n".format( str(i) )
             output += str( mesh ) + '\n\n\n\n'

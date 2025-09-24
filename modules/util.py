@@ -109,5 +109,12 @@ def get_all_filenames_of_specified_extension( dir_path, extension ):
     return filenames
 
 
-def bytes_to_float(bytes):
+def bytes_to_float( bytes ):
     return struct.unpack( '!f', bytes )[0]
+
+def float_to_bytes( number ):
+    hexstr = hex(struct.unpack('<I', struct.pack( '<f', number ))[0])
+    if hexstr != "0x0":
+        return bytes.fromhex( hexstr[2:] )
+    return b'\x00\x00\x00\x00'
+    

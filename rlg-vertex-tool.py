@@ -62,13 +62,24 @@ def __main__():
         elif(r == "e"):
             for rlgname in rlg_filenames:
                 rlgpath = DIR_PATH_INPUT_NLG_FORMATS + rlgname
-                daepath = ( DIR_PATH_OUTPUT + rlgname ).replace( ".rlg", ".dae" )
+                daename = rlgname + ".dae"
+                daepath = DIR_PATH_OUTPUT + daename
                 dae.create_dae( rlg.read_rlg( rlgpath ), daepath )
 
         elif(r == "g"):
-            for daename in dae_filenames:
+            for rlgname in rlg_filenames:
+                daename = rlgname + ".dae"
+
+                if daename not in dae_filenames:
+                    print( rlgname + ".dae not found" )
+                    continue
+                print( "found " + daename )
+
+                src_rlg_path = DIR_PATH_INPUT_NLG_FORMATS + rlgname
+                dst_rlg_path = DIR_PATH_OUTPUT + rlgname
                 daepath = DIR_PATH_INPUT_COMMON_FORMATS + daename
-                dae.read_dae( daepath )
+
+                rlg.patch_rlg( src_rlg_path, dst_rlg_path, dae.read_dae( daepath ) )
         
         elif(r == "help"):
             print( PROMPT_STR_HELP + "\n")
