@@ -54,7 +54,6 @@ def read_rlg( filepath ):
 
         for j in range( mesh_data_instance.index_start_offset//2, index_data_end//2 ): 
 
-            print( "DEBUG:" + str(i) + ", " + str(j) )
             index_data_of_this_mesh.append( index_data[j] )
 
 
@@ -107,20 +106,31 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
         vertex_count = mesh.mesh_data.vertex_count
 
         # take the new vertices
-        new_vertices = new_model3d.meshes[ i ].vertices
+        new_vertices = new_model3d.meshes[ 11 - i ].vertices  # TODO: this fix is fucking stupid. rewrite this
 
         # go to the place where vertices are stored
         rlgfile.seek( start_of_data + offset, 0 )
 
+        print( "DEBUG: vertex_count={0} len(newverts)={1}".format( vertex_count, len( new_vertices ) ) )
+        
         # loop to replace all the vertex positions
-        for j in range( vertex_count ):
+        for j in range( vertex_count ):  
 
             # take a new vertex, then loop on its coordinates and replace all of them
             new_vertex = new_vertices[ j ]
 
-            for coord in new_vertices[ j ].position:
+            for coord in new_vertex.position:
                 new_bytes = util.float_to_bytes( coord )
+
+                old_bytes = rlgfile.read( 4 )
+                rlgfile.seek( -4, 1 )
+
                 rlgfile.write( new_bytes )
+
+                if new_bytes != old_bytes:
+                    print( "DEBUG: wrote something new! " + str( new_bytes ) + " " + str( coord ) )
+
+    rlgfile.close()
 
 
 

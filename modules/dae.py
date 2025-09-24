@@ -244,7 +244,6 @@ def read_dae( filepath ):
 
     # loop through all geometry tags
     geometry_tags = xmlroot.findall( 'geometry' )
-    print( "DEBUG: SBLORG " + str( geometry_tags ) )
 
     vertex_absolute_id = 0
 
@@ -287,13 +286,12 @@ def read_dae( filepath ):
         vertices = []
 
         for j, vertex_position in enumerate(vertex_positions):
+            print( "DEBUG: vpos " + str( vertex_position ) )
             vertex_absolute_id += 1
             new_vertex =  m3d.Vertex( vertex_absolute_id, j, 0, i, vertex_position, vertex_normals[j],
                                             vertex_uvs[j], 0, 0, 0, 0, 0, [0,0,0,0], [0,0,0,0] )
             
             vertices.append( new_vertex )
-
-        print( "DEBUG: verts=" + str( vertices ) )
 
 
         # TRIANGLES
@@ -305,7 +303,6 @@ def read_dae( filepath ):
 
         model3d.meshes.append( new_mesh )
 
-    print( "DEBUG: " + str( model3d ) )
     return model3d
 
 
