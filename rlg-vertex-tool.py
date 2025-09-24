@@ -86,58 +86,7 @@ def print_misc_data_to_file( filename, model3d ):
 
     txtfile = open( DIR_PATH_OUTPUT + filename + "_miscdata.txt", "w" )
 
-    txtfile.write( "4x4 MATRIX:\n" )
-    for row in model3d.matrix_data:
-        txtfile.write( str( row ) + "\n" )
-    txtfile.write( "\n" )
-
-    txtfile.write( "MODEL DATA:\n" )
-    txtfile.write( str( model3d.model_data ) + "\n\n" )
-
-    txtfile.write( "ALL MESH DATA:\n" )
-    for d in model3d.meshes:
-        txtfile.write( str( d.mesh_data ) + "\n" )
-    txtfile.write( "\n\n\n\n" )
-
-    for i, d in enumerate( model3d.meshes ):
-
-        txtfile.write( "data[" +str(i)+ "]\n" )
-        txtfile.write( "\nMESH DATA:\n" ) # TODO: iterate on the whole dict, and print ints as hex
-        txtfile.write( str( d.mesh_data ) + "\n" )
-
-        txtfile.write( "\nINDEX DATA:\n" )
-        max_index = 0
-        for e in d.index_data:
-            txtfile.write( str( hex( e ) ) + " " )
-            if( e > max_index ):
-                max_index = e
-        txtfile.write( "\nbiggest index of mesh: " + str(hex(max_index)) )
-
-        txtfile.write( "\n\nVERTEX ATTRIBUTE:\n" )
-        for e in d.vertex_attributes:
-            txtfile.write( str( e ) + "\n" )
-
-        txtfile.write( "\nVERTICES:\n" )
-        vertex_id = 0x0
-        for e in d.vertices:
-            txtfile.write( "VERTEX " + hex( vertex_id ) + " " )
-            vertex_id += 1
-            txtfile.write( str( e.position ) + "\n" )
-            txtfile.write( str( e.normal ) + "\n" )
-            txtfile.write( str( e.uv0 ) + "\n" )
-            txtfile.write( str( e.unknown0xED ) + "\n" )
-            txtfile.write( str( e.unknown0x52 ) + "\n" )
-            txtfile.write( str( e.unknown0xC0 ) + "\n" )
-            txtfile.write( str( e.unknown0xD6 ) + "\n" )
-            txtfile.write( str( e.unknown0xD7 ) + "\n" )
-            txtfile.write( str( e.bone_ids ) + "\n" )
-            txtfile.write( str( e.bone_weights ) + "\n" )
-            txtfile.write( "\n" )
-
-        txtfile.write( "\n\nFACES:\n" )
-        for e in d.faces:
-            txtfile.write( str( e ) + "\n" )
-        txtfile.write("\n\n\n\n\n\n\n\n")
+    txtfile.write( str( model3d ) )
 
     txtfile.close()
     print( filename + "_miscdata.txt file successfully created in output folder" )

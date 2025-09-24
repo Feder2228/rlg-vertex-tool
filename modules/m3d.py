@@ -1,11 +1,59 @@
 ID_MATRIX = [ [1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1] ]
 
+STR_MATRIX = '''4x4 MATRIX:
+{0}
+'''
+STR_MODEL_DATA = '''MODEL DATA:
+hash_id = {0}
+mesh_count = {1}
+unknown0x8 = {2}
+'''
+STR_MESH = '''MESH_DATA:
+{0}
+
+INDEX_DATA:
+{1}
+
+VERTEX_ATTRIBUTES:
+{2}
+
+VERTICES:
+{3}
+
+FACES:
+{4}
+'''
+STR_MESH_DATA = '''index_start_offset: {0}
+index_count: {1}
+index_format: {2}
+vertex_count: {3}
+unknown0xA: {4}
+material_hash_id: {5} 
+unknown0x16: {6}
+unknown0x1A: {7}
+mesh_hash_id: {8} 
+material_offset: {9} 
+unknown_0x22: {10}
+unknown_0x26: {11}
+unknown_0x2A: {12}
+'''
+
+
 # a data structure that defines a 3d model and aims to mimic the rlg/glg format
 class Model3d:
     def __init__( self, matrix_data = ID_MATRIX, model_data = None, meshes = [] ):
         self.matrix_data = matrix_data
         self.model_data = model_data
         self.meshes = meshes
+    def __str__( self ):
+        output = STR_MATRIX.format( self.matrix_data, str( self.model_data ) )
+        for i, model in enumerate( self.model_data ):
+            output += "MODEL {0}:\n\n".format( str(i) )
+            output += str( model ) + '\n\n\n\n'
+        for i, mesh in enumerate( self.meshes ):
+            output += "MESH {0}:\n\n".format( str(i) )
+            output += str( mesh ) + '\n\n\n\n'
+        return output
 
 class ModelData:
     def __init__( self, hash_id, mesh_count, unknown0x8 ):
@@ -13,6 +61,8 @@ class ModelData:
         self.mesh_count = mesh_count
         self.unknown0x8 = unknown0x8
         # TODO: GLG - unknown0xC 
+    def __str__( self ):
+        return STR_MODEL_DATA.format( self.hash_id, self.mesh_count, self.unknown0x8 )
 
 class Mesh:
     def __init__( self, mesh_data, index_data, vertex_attributes, vertices, faces ):
@@ -21,6 +71,8 @@ class Mesh:
         self.vertex_attributes = vertex_attributes
         self.vertices = vertices
         self.faces = faces
+    def __str__( self ):
+        return STR_MESH.format( self.mesh_data, self.index_data, self.vertex_attributes, self.vertices, self.faces )
 
     def get_face_verts( self, face_number ):
         indices = self.faces[ face_number ].indices
@@ -46,6 +98,11 @@ class MeshData:
         self.unknown_0x22 = unknown_0x22
         self.unknown_0x26 = unknown_0x26
         self.unknown_0x2A = unknown_0x2A
+    
+    def __str__( self ):
+        return STR_MESH_DATA.format( self.index_start_offset, self.index_count, self.index_format, self.vertex_count, self.unknown0xA,
+                  self.material_hash_id, self.unknown0x16, self.unknown0x1A, self.mesh_hash_id,
+                  self.material_offset, self.unknown_0x22, self.unknown_0x26, self.unknown_0x2A )
 
 
 class VertexAttribute:
@@ -55,6 +112,8 @@ class VertexAttribute:
         self.type = type
         self.stride = stride
         self.unknown0x6 = unknown0x6
+    def __str__( self ):
+        return ""
 
 class Vertex:
     def __init__( self, absolute_id, relative_id, offset, group, position, normal, uv0,
