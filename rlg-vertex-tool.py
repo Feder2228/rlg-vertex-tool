@@ -47,68 +47,65 @@ PROMPT_STR_HELP = '''
 
 
 # function that prints data to file
-def print_misc_data_to_file(rlg):
+def print_misc_data_to_file( filename, model3d ):
 
-    filename = os.path.basename(rlg.name)
-    data = rlglib.read_rlg(rlg)
+    txtfile = open( DIR_PATH_OUTPUT + filename + "_miscdata.txt", "w" )
 
-    txt = open( DIR_PATH_OUTPUT + filename + "_miscdata.txt", "w" )
+    txtfile.write( "4x4 MATRIX:\n" )
+    for row in model3d.matrix_data:
+        txtfile.write( str( row ) + "\n" )
+    txtfile.write( "\n" )
 
-    txt.write( "4x4 MATRIX:\n" )
-    for row in data['matrix']:
-        txt.write( str( row ) + "\n" )
-    txt.write( "\n" )
+    txtfile.write( "MODEL DATA:\n" )
+    txtfile.write( str( model3d.model_data ) + "\n\n" )
 
-    txt.write( "MODEL DATA:\n" )
-    txt.write( str( data['model_data'] ) + "\n\n" )
+    txtfile.write( "ALL MESH DATA:\n" )
+    for d in model3d.meshes:
+        txtfile.write( str( d.mesh_data ) + "\n" )
+    txtfile.write( "\n\n\n\n" )
 
-    txt.write( "ALL MESH DATA:\n" )
-    for d in data['meshes']:
-        txt.write( str(d['mesh_data'] ) + "\n" )
-    txt.write( "\n\n\n\n" )
+    for i, d in enumerate( model3d.meshes ):
 
-    for i, d in enumerate( data['meshes'] ):
+        txtfile.write( "data[" +str(i)+ "]\n" )
+        txtfile.write( "\nMESH DATA:\n" ) # TODO: iterate on the whole dict, and print ints as hex
+        txtfile.write( str( d.mesh_data ) + "\n" )
 
-        txt.write( "data[" +str(i)+ "]\n" )
-        txt.write( "\nMESH DATA:\n" ) # TODO: iterate on the whole dict, and print ints as hex
-        txt.write( str( d['mesh_data'] ) + "\n" )
-
-        txt.write( "\nINDEX DATA:\n" )
+        txtfile.write( "\nINDEX DATA:\n" )
         max_index = 0
-        for e in d['index_data']:
-            txt.write( str(hex(e)) + " " )
+        for e in d.index_data:
+            txtfile.write( str( hex( e ) ) + " " )
             if( e > max_index ):
                 max_index = e
-        txt.write( "\nbiggest index of mesh: " + str(hex(max_index)) )
+        txtfile.write( "\nbiggest index of mesh: " + str(hex(max_index)) )
 
-        txt.write( "\n\nVERTEX ATTRIBUTE:\n" )
-        for e in d['vertex_attributes']:
-            txt.write( str(e) + "\n" )
+        txtfile.write( "\n\nVERTEX ATTRIBUTE:\n" )
+        for e in d.vertex_attributes:
+            txtfile.write( str( e ) + "\n" )
 
-        txt.write( "\nVERTICES:\n" )
+        txtfile.write( "\nVERTICES:\n" )
         vertex_id = 0x0
-        for e in d['vertices']:
-            txt.write( "VERTEX " + hex( vertex_id ) + " " )
+        for e in d.vertices:
+            txtfile.write( "VERTEX " + hex( vertex_id ) + " " )
             vertex_id += 1
-            txt.write( str( e['position'] ) + "\n" )
-            txt.write( str( e['normal'] ) + "\n" )
-            txt.write( str( e['uv0'] ) + "\n" )
-            txt.write( str( e['attribute_0xed'] ) + "\n" )
-            txt.write( str( e['attribute_0x52'] ) + "\n" )
-            txt.write( str( e['attribute_0xc0'] ) + "\n" )
-            txt.write( str( e['attribute_0xd6'] ) + "\n" )
-            txt.write( str( e['attribute_0xd7'] ) + "\n" )
-            txt.write( str( e['bone_ids'] ) + "\n" )
-            txt.write( str( e['bone_weights'] ) + "\n" )
-            txt.write( "\n" )
+            txtfile.write( str( e.position ) + "\n" )
+            txtfile.write( str( e.normal ) + "\n" )
+            txtfile.write( str( e.uv0 ) + "\n" )
+            txtfile.write( str( e.unknown0xED ) + "\n" )
+            txtfile.write( str( e.unknown0x52 ) + "\n" )
+            txtfile.write( str( e.unknown0xC0 ) + "\n" )
+            txtfile.write( str( e.unknown0xD6 ) + "\n" )
+            txtfile.write( str( e.unknown0xD7 ) + "\n" )
+            txtfile.write( str( e.bone_ids ) + "\n" )
+            txtfile.write( str( e.bone_weights ) + "\n" )
+            txtfile.write( "\n" )
 
-        txt.write( "\n\nFACES:\n" )
-        for e in d['faces']:
-            txt.write( str(e) + "\n" )
-        txt.write("\n\n\n\n\n\n\n\n")
+        txtfile.write( "\n\nFACES:\n" )
+        for e in d.faces:
+            txtfile.write( str( e ) + "\n" )
+        txtfile.write("\n\n\n\n\n\n\n\n")
 
-    txt.close()
-    print(filename+"_miscdata.txt file successfully created in output folder")
+    txtfile.close()
+    print( filename + "_miscdata.txt file successfully created in output folder" )
 
 
 
@@ -124,39 +121,21 @@ while True:
     dae_filenames = util.get_all_filenames_of_specified_extension( DIR_PATH_INPUT_COMMON_FORMATS, ".dae" )
 
     # check response and execute if it's a valid command
-    if(r == "eobj"):
-        for i in rlg_filenames:
-            rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
-            objlib.create_obj( rlg )
-            rlg.close()
-
-    elif(r == "gobj"):
-        for i in rlg_filenames:
-            rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
-            rlglib.generate_new_rlg( rlg )
-            rlg.close()
-
-    elif(r == "eobjs"):
-        for i in rlg_filenames:
-            rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
-            objlib.create_obj( rlg, split_files_by_group=True )
-            rlg.close()
-        
-    elif(r == "d"):
-        for i in rlg_filenames:
-            rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
-            print_misc_data_to_file( rlg )
-            rlg.close()
+    if(r == "d"):
+        for rlgname in rlg_filenames:
+            rlgpath = DIR_PATH_INPUT_NLG_FORMATS + rlgname
+            print_misc_data_to_file( rlgname, rlglib.read_rlg( rlgpath ) )
 
     elif(r == "e"):
-        for i in rlg_filenames:
-            rlg = open( DIR_PATH_INPUT_NLG_FORMATS + i, "rb" )
-            daelib.create_dae( rlglib.read_rlg(rlg), i.split(".")[0] )
+        for rlgname in rlg_filenames:
+            rlgpath = DIR_PATH_INPUT_NLG_FORMATS + rlgname
+            daepath = ( DIR_PATH_OUTPUT + rlgname ).replace( ".rlg", ".dae" )
+            daelib.create_dae( rlglib.read_rlg( rlgpath ), daepath )
 
     elif(r == "g"):
-        for i in dae_filenames:
-            dae = open( DIR_PATH_INPUT_COMMON_FORMATS + i, "r" )
-            daelib.read_dae( dae )
+        for daename in dae_filenames:
+            daepath = DIR_PATH_INPUT_COMMON_FORMATS + daename
+            daelib.read_dae( daepath )
     
     elif(r == "help"):
         print( PROMPT_STR_HELP + "\n")

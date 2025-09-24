@@ -1,4 +1,5 @@
-import os, util
+import os
+from modules import util, model3dlib
 
 # SECTION IDENTIFIER CONSTANTS
 SECTION_MATRIX_DATA = b'\x00\x01\xb0\x02'
@@ -59,7 +60,7 @@ def rlg_get_section_info( rlg, section_identifier ):
 
 
 
-# Function to read the vertices of a rlg file. Returns a list containing all the vertices
+# Function to read the vertices of a rlg file. Returns a list of Vertex objects
 def get_vertices_from_rlg( rlg ):
     
     # get section info
@@ -71,7 +72,7 @@ def get_vertices_from_rlg( rlg ):
 
     # set up some variables for the loop
     start_of_data = section_info['start_of_data']
-    a = []
+    vertices = []
     absolute_id = 0
 
     # repeat for each interval: get all the vertices in the interval
@@ -79,83 +80,71 @@ def get_vertices_from_rlg( rlg ):
         
         relative_id = 0
 
-        for j in range( int( mesh['vertex_count'], 16 ) ):  # TODO: I shouldn't have to cast vertex_count to int here
+        for j in range( int( mesh.vertex_count, 16 ) ):  # TODO: I shouldn't have to cast vertex_count to int here
             
-            offset = vertex_attributes[ i*10 ]['offset']  # TODO: move this inside the loop?
+            offset = vertex_attributes[ i*10 ].offset  
             rlg.seek( start_of_data + offset + (j*12), 0 )
             current_byte = rlg.tell() - start_of_data  # TODO: remove this?
             position = [ util.bytes_to_float( rlg.read(4) ),  
                          util.bytes_to_float( rlg.read(4) ), 
                          util.bytes_to_float( rlg.read(4) ) ]
            
-            offset = vertex_attributes[ i*10 + 1 ]['offset']
+            offset = vertex_attributes[ i*10 + 1 ].offset
             rlg.seek( start_of_data + offset + (j*12), 0 )
             normal = [ util.bytes_to_float( rlg.read(4) ),  
                        util.bytes_to_float( rlg.read(4) ), 
                        util.bytes_to_float( rlg.read(4) ) ]
             
-            offset = vertex_attributes[ i*10 + 2 ]['offset']
+            offset = vertex_attributes[ i*10 + 2 ].offset
             rlg.seek( start_of_data + offset + (j*4), 0 )
             attribute_0xcc = [ int.from_bytes( rlg.read(2), "big" ) / 1024,
                                int.from_bytes( rlg.read(2), "big" ) / 1024 ]
 
-            offset = vertex_attributes[ i*10 + 3 ]['offset']
+            offset = vertex_attributes[ i*10 + 3 ].offset
             rlg.seek( start_of_data + offset + (j*4), 0 )
             attribute_0xed = [ int.from_bytes( rlg.read(4), "big" ) ]
 
-            offset = vertex_attributes[ i*10 + 4 ]['offset']
+            offset = vertex_attributes[ i*10 + 4 ].offset
             rlg.seek( start_of_data + offset + (j*4), 0 )
             attribute_0x52 = [ int.from_bytes( rlg.read(4), "big" ) ]
 
-            offset = vertex_attributes[ i*10 + 5 ]['offset']
+            offset = vertex_attributes[ i*10 + 5 ].offset
             rlg.seek( start_of_data + offset + (j*4), 0 )
             attribute_0xc0 = [ int.from_bytes( rlg.read(4), "big" ) ]
 
-            offset = vertex_attributes[ i*10 + 6 ]['offset']
+            offset = vertex_attributes[ i*10 + 6 ].offset
             rlg.seek( start_of_data + offset + (j*4), 0 )
             attribute_0xd6 = [ int.from_bytes( rlg.read(4), "big" ) ]
 
-            offset = vertex_attributes[ i*10 + 7 ]['offset']
+            offset = vertex_attributes[ i*10 + 7 ].offset
             rlg.seek( start_of_data + offset + (j*4), 0 )
             attribute_0xd7 = [ int.from_bytes( rlg.read(4), "big" ) ]
 
-            offset = vertex_attributes[ i*10 + 8 ]['offset']
+            offset = vertex_attributes[ i*10 + 8 ].offset
             rlg.seek( start_of_data + offset + (j*4), 0 )
             attribute_0xd4 = [ int.from_bytes( rlg.read(1), "big" ),
                                int.from_bytes( rlg.read(1), "big" ),
                                int.from_bytes( rlg.read(1), "big" ),
                                int.from_bytes( rlg.read(1), "big" ) ]
 
-            offset = vertex_attributes[ i*10 + 9 ]['offset']
+            offset = vertex_attributes[ i*10 + 9 ].offset
             rlg.seek( start_of_data + offset + (j*16), 0 )
             attribute_0xb0 = [ util.bytes_to_float( rlg.read(4) ),  
                                util.bytes_to_float( rlg.read(4) ), 
                                util.bytes_to_float( rlg.read(4) ),
                                util.bytes_to_float( rlg.read(4) ) ]
 
-            a.append( {
-                "absolute_id" : absolute_id,       # id
-                "relavtive_id" : relative_id,      # id (relative to the start of the group)
-                "offset" : current_byte,           # TODO: should I remove this?
-                "group" : i,
-                "position" : position,
-                "normal" : normal,
-                "uv0" : attribute_0xcc,
-                "attribute_0xed" : attribute_0xed,
-                "attribute_0x52" : attribute_0x52,
-                "attribute_0xc0" : attribute_0xc0,
-                "attribute_0xd6" : attribute_0xd6,
-                "attribute_0xd7" : attribute_0xd7,
-                "bone_ids" : attribute_0xd4,
-                "bone_weights" : attribute_0xb0,
-            } )
+            new_vertex = model3dlib.Vertex( absolute_id, relative_id, current_byte, i, position, normal,
+                                            attribute_0xcc, attribute_0xed, attribute_0x52, attribute_0xc0,
+                                            attribute_0xd6, attribute_0xd7, attribute_0xd4, attribute_0xb0)
+            vertices.append( new_vertex )
 
             current_byte = rlg.tell() - start_of_data
 
             absolute_id += 1
             relative_id += 1
 
-    return a
+    return vertices
 
 
 def get_vertices_from_rlg_split_by_group( rlg ):
@@ -174,7 +163,7 @@ def split_vertices_by_group( vertices ):
         group.append( v )
 
         # if this is last vertex of a group, put the group into the "vertices_by_group" list
-        if( i >= len(vertices)-1 or vertices[i+1]['group'] != v['group'] ):
+        if( i >= len(vertices)-1 or vertices[i+1].group != v.group ):
             vertices_by_group.append( group )
             group = []
 
@@ -192,7 +181,7 @@ def get_vertex_attributes_from_rlg(rlg):
 
     # set some variables for the loop
     rlg.seek( start_of_data ,0)
-    a = []
+    vertex_attributes = []
     end_of_section = start_of_data + section_size
     group = -1
 
@@ -207,14 +196,11 @@ def get_vertex_attributes_from_rlg(rlg):
         if( type == VERTEX_ATTRIBUTE_TYPE_VERTEX ):
             group += 1
 
-        a.append( {
-            "group" : group,
-            "offset" : offset,
-            "type" : type,         # types are ordered like this: 67 fe cc ed 52 c0 d6 d7 d4 b0
-            "stride" : stride,
-            "0x6" : unknown_0x6
-        } )
-    return a
+        new_vertex_attribute = model3dlib.VertexAttribute( group, offset, type, stride, unknown_0x6 )
+
+        vertex_attributes.append( new_vertex_attribute )
+
+    return vertex_attributes
 
 
 def get_vertex_attributes_from_rlg_split_by_group(rlg):
@@ -229,7 +215,7 @@ def get_vertex_attributes_from_rlg_split_by_group(rlg):
         group.append( v )
 
         # if this is last vertex of a group, put the group into the "vertex_attributes_by_group" list
-        if( i >= len(vertex_attributes)-1 or vertex_attributes[i+1]['group'] != v['group'] ):
+        if( i >= len(vertex_attributes)-1 or vertex_attributes[i+1].group != v.group ):
             vertex_attributes_by_group.append( group )
             group = []
 
@@ -238,7 +224,6 @@ def get_vertex_attributes_from_rlg_split_by_group(rlg):
 
 
 
-# TODO: WIP, need to split by model. For now only works if the file contains one model
 def get_model_data_from_rlg(rlg):
     
     section_info = rlg_get_section_info( rlg, SECTION_MODEL_DATA )
@@ -249,26 +234,22 @@ def get_model_data_from_rlg(rlg):
     rlg.seek( start_of_data, 0 )
 
     model_count = section_size//12
-    model_data = []
+    model_data_instances = []
 
     for i in range( model_count ):
 
-        model_data.append( {
-            'hash_id' : int.from_bytes( rlg.read(4), "big"),
-            'mesh_count' : int.from_bytes( rlg.read(4), "big" ),
-            '0x8' : int.from_bytes( rlg.read(4), "big" )
-        })
+        model_data = model3dlib.ModelData( int.from_bytes( rlg.read(4), "big" ),
+                                           int.from_bytes( rlg.read(4), "big" ),
+                                           int.from_bytes( rlg.read(4), "big" ) )
+
+        model_data_instances.append( model_data )
     
-    return model_data
+    return model_data_instances
 
 
 
 
 def get_mesh_data_from_rlg(rlg):
-
-    # get the filename and strip the extention
-    filename = os.path.basename(rlg.name)
-    print("Reading mesh data of: " +filename)
     
     section_info = rlg_get_section_info( rlg, SECTION_MESH_DATA )
     start_of_data = section_info['start_of_data']
@@ -279,7 +260,8 @@ def get_mesh_data_from_rlg(rlg):
     start_of_data = rlg.tell()
 
     # read data
-    a = []
+    mesh_data_instances = []
+
     while rlg.tell() < start_of_data+section_size:  # TODO: edit the condition to make it more readable
         index_start_offset = int.from_bytes( rlg.read(4), "big" )
         index_flags = int.from_bytes( rlg.read(4), "big" )
@@ -294,23 +276,14 @@ def get_mesh_data_from_rlg(rlg):
         unknown_0x26 = int.from_bytes( rlg.read(4), "big" )
         unknown_0x2a = int.from_bytes( rlg.read(6), "big" )
 
-        a.append( { 
-                "index_start_offset" : index_start_offset,
-                "index_count" : index_flags & 0xffffff,
-                "index_format" : index_flags >> 24,
-                "vertex_count" : hex(vertex_count),
-                "0x0a" : unknown_0x0a,
-                "material_hash_id" : material_hash_id,
-                "0x16" : unknown_0x16,
-                "0x1a" : unknown_0x1a,
-                "mesh_hash_id" : mesh_hash_id,
-                "material_offset" : material_offset,
-                "0x22" : unknown_0x22,
-                "0x26" : unknown_0x26,
-                "0x2a" : unknown_0x2a,
-            } )
+        new_mesh_data_instance = model3dlib.MeshData( index_start_offset, index_flags & 0xffffff, index_flags >> 24, hex(vertex_count),  # TODO: nuh-uh
+                 unknown_0x0a, material_hash_id, unknown_0x16, unknown_0x1a, mesh_hash_id,  material_offset, unknown_0x22,
+                 unknown_0x26, unknown_0x2a,   
+        )
+
+        mesh_data_instances.append( new_mesh_data_instance )
   
-    return a
+    return mesh_data_instances
     
 
 
@@ -362,35 +335,29 @@ def get_matrix_from_rlg(rlg):
 
 
 
-# Get a dict with various data from an rlg file
-# Still WIP. Currently structured like this:
-# Dict that has the following keys: "model_data", "meshes"
-# "meshes" is a list of dicts, each of which contain data of a group/mesh: "mesh_data", "index_data", "vertex_attributes", "vertices", "faces"
-# For more info look at the comments next to the last "append" in this function
-def read_rlg(rlg):
+# Read rlg file. Returns model3d object
+def read_rlg( filepath ):
 
-    data = {
-        'matrix' : get_matrix_from_rlg(rlg),
-        'model_data' : get_model_data_from_rlg(rlg), 
-        'meshes' : []
-    }
+    rlgfile = open( filepath, "rb" )
+
+    model3d = model3dlib.Model3d( get_matrix_from_rlg( rlgfile ), get_model_data_from_rlg( rlgfile ), [] )
       
     
     # Read data
-    mesh_data = get_mesh_data_from_rlg(rlg)
-    index_data = get_index_data_from_rlg(rlg)
-    vertex_attributes = get_vertex_attributes_from_rlg_split_by_group(rlg)
-    vertices = get_vertices_from_rlg_split_by_group(rlg)
+    mesh_data = get_mesh_data_from_rlg( rlgfile )
+    index_data = get_index_data_from_rlg( rlgfile )
+    vertex_attributes = get_vertex_attributes_from_rlg_split_by_group( rlgfile )
+    vertices = get_vertices_from_rlg_split_by_group( rlgfile )
 
 
     # Loop through groups
-    for i, m in enumerate(mesh_data):
+    for i, mesh_data_instance in enumerate(mesh_data):
 
         # Split index data by group
-        index_data_end = m['index_start_offset'] + ( (m['index_count']) * 2 )
+        index_data_end = mesh_data_instance.index_start_offset + ( (mesh_data_instance.index_count) * 2 )
         index_data_of_this_mesh = []
 
-        for j in range( m['index_start_offset']//2, index_data_end//2 ): 
+        for j in range( mesh_data_instance.index_start_offset//2, index_data_end//2 ): 
 
             print( "DEBUG:" + str(i) + ", " + str(j) )
             index_data_of_this_mesh.append( index_data[j] )
@@ -408,64 +375,16 @@ def read_rlg(rlg):
             tri = index_data_of_this_mesh[ (j - 2) : (j + 1) ]
             if( tri[0] != tri[1] and tri[1] != tri[2] and tri[0] != tri[2] ):
 
-                faces_of_this_mesh.append( tri )
+                confirmed_tri = model3dlib.Face( tri )
 
+                faces_of_this_mesh.append( confirmed_tri )
+
+
+        new_mesh = model3dlib.Mesh( mesh_data_instance, index_data, vertex_attributes[ i ], vertices[ i ], faces_of_this_mesh )
 
         # Add data to array
-        data['meshes'].append({
-            "mesh_data" : m,                                    # raw mesh data
-            "index_data" : index_data_of_this_mesh,             # raw index data (0 based, vertex ids are relative to beginning of mesh/group)
-            "vertex_attributes" : vertex_attributes[ i ],        # raw vertex attribute data
-            "vertices" : vertices[ i ],                         # processed vertices
-            "faces" : faces_of_this_mesh                        # processed faces (0 based, vertex ids are relative to beginning of mesh/group)
-        })
-    return data
+        model3d.meshes.append( new_mesh )
 
+    rlgfile.close()
+    return model3d
 
-
-# TODO: nuke this
-def generate_new_rlg(original_rlg):
-
-    # Get the rlg filename (without extension)
-    filename = os.path.basename(original_rlg.name)
-    filename = re.split(".rlg", filename)[0]
-
-    # Get the data from both the rlg and the obj
-    try:
-        new_vertices = get_vertices_from_obj(filename)
-    except:
-        print("Error: .obj file not found")
-        return
-    
-    # check if files have the same amount of vertices. Throw a warning if not
-    old_vertices = get_vertices_from_rlg( original_rlg )
-    print("Found " + str(len(new_vertices)) + " Vertices in given obj file")
-    print("Found " + str(len(old_vertices)) + " Vertices in given rlg file")
-    if( len(new_vertices) != len(old_vertices)):
-        print("Warning: The vertex count of the two files doesn't match. This may lead to errors, or the output rlg file might be incorrect")
-
-    # open the file and find the start of the section we need
-    rlg = open( DIR_PATH_INPUT_NLG_FORMATS + filename + ".rlg", "rb" )
-    section_info = rlg_get_section_info( rlg, SECTION_VERTEX_DATA )
-    start_of_data = section_info['start_of_data']  
-    rlg.close()
-
-    # copy the rlg file to the output folder and replace its vertices 
-    shutil.copyfile( DIR_PATH_INPUT_NLG_FORMATS + filename + '.rlg', './' + DIR_PATH_OUTPUT + filename + '.rlg')
-    rlg = open( DIR_PATH_OUTPUT + filename + '.rlg', "r+b" )
-    vertex_num = 0
-
-    for i in old_vertices:
-        offset = i['offset']
-        curr_location = start_of_data+offset
-        rlg.seek(curr_location,0)
-        for j in new_vertices[ vertex_num ]:
-            j_hexstr = hex(struct.unpack('<I', struct.pack('<f', j))[0])
-            if(j_hexstr != "0x0"):
-                j_bytes = bytes.fromhex(j_hexstr[2:])
-            else:
-                j_bytes = b'\x00\x00\x00\x00'
-            rlg.write( j_bytes )
-        vertex_num += 1
-    print(filename+".rlg file successfully created in output folder")
-    

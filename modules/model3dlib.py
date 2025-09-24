@@ -30,11 +30,12 @@ class Mesh:
         return face_vertices
 
 class MeshData:
-    def __init__( self, index_start_offset, index_count, vertex_count, unknown0xA,
+    def __init__( self, index_start_offset, index_count, index_format, vertex_count, unknown0xA,
                   material_hash_id, unknown0x16, unknown0x1A, mesh_hash_id,
                   material_offset, unknown_0x22, unknown_0x26, unknown_0x2A ):
         self.index_start_offset = index_start_offset
         self.index_count = index_count
+        self.index_format = index_format
         self.vertex_count = vertex_count
         self.unknown0xA = unknown0xA
         self.material_hash_id = material_hash_id

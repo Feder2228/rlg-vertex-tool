@@ -42,19 +42,19 @@ def det2( m ):
 def adjust_normals_for_dae( tri, geometry ):  # TODO: move this into the Model3d class
 
     # look at the vertex normals to determine which side the tri is facing (this is how it works in .rlg files)
-    vertices = geometry['vertices']
-    index0 = tri[0]
-    index1 = tri[1]
-    index2 = tri[2]
+    vertices = geometry.vertices
+    index0 = tri.indices[0]
+    index1 = tri.indices[1]
+    index2 = tri.indices[2]
 
     # sum the normals of the vertices. In the rlg format, the triagle faces towards this point
     # (this is not actually the normal, just a random point on the same side as the normal)
-    tri_normal_thing = vector_sum3( vertices[ index0 ]['normal'], vertices[ index1 ]['normal'], vertices[ index2 ]['normal'] )
+    tri_normal_thing = vector_sum3( vertices[ index0 ].normal, vertices[ index1 ].normal, vertices[ index2 ].normal )
 
     # make a matrix of the positions of the triangle's vertices
-    tri_positions = [ [ vertices[ index0 ]['position'][0], vertices[ index0 ]['position'][1], vertices[ index0 ]['position'][2] ],
-                      [ vertices[ index1 ]['position'][0], vertices[ index1 ]['position'][1], vertices[ index1 ]['position'][2] ],
-                      [ vertices[ index2 ]['position'][0], vertices[ index2 ]['position'][1], vertices[ index2 ]['position'][2] ] ]
+    tri_positions = [ [ vertices[ index0 ].position[0], vertices[ index0 ].position[1], vertices[ index0 ].position[2] ],
+                      [ vertices[ index1 ].position[0], vertices[ index1 ].position[1], vertices[ index1 ].position[2] ],
+                      [ vertices[ index2 ].position[0], vertices[ index2 ].position[1], vertices[ index2 ].position[2] ] ]
     
     # shift the tri in a way so that the first vertex is on the origin
     tri_positions_on_origin = [ vector_sub( tri_positions[0], tri_positions[0] ),
@@ -69,9 +69,9 @@ def adjust_normals_for_dae( tri, geometry ):  # TODO: move this into the Model3d
     # in that case, it would be on the clockwise side, so swap two of the indices to make it counterclockwise
     if dot_product( dae_normal, tri_normal_thing ) < 0:
         # swap two indices
-        tmp = tri[0]
-        tri[0] = tri[1]
-        tri[1] = tmp
+        tmp = tri.indices[0]
+        tri.indices[0] = tri.indices[1]
+        tri.indices[1] = tmp
 
 
 
