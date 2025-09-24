@@ -1,20 +1,19 @@
 import os
-import modules.daelib as daelib
-import modules.rlglib as rlglib
-import modules.objlib as objlib
+import modules.dae as dae
+import modules.rlg as rlg
 import modules.util as util
 
 
 # CONSTANTS
-# DIRECTORT PATHS
+# DIRECTORY PATHS
 DIR_PATH_OUTPUT = "output/"
 DIR_PATH_INPUT_NLG_FORMATS = "rlg/"
 DIR_PATH_INPUT_COMMON_FORMATS = "obj/"
 
 # PROMPT STRINGS
 PROMPT_STR_BASE_COMMANDS = '''-- Select a command --
-    e - extract data from .rlg (save as .obj)
-    g - generate new .rlg (use original .rlg plus a modified .obj)
+    e - extract data from .rlg (save as .dae)
+    g - generate new .rlg (use original .rlg plus a modified .dae)
     x - exit
     help - more info      
 '''
@@ -22,26 +21,62 @@ PROMPT_STR_HELP = '''
     REGULAR COMMANDS:
 
     e
-    Takes all the .rlg files it finds in the "rlg" folder, reads their data, then for each of them it creates a .obj file containing the vertices and faces (separated by group).
-    For 3D model mods, import this .obj file in a program like blender, move the vertices around (but do NOT add/remove any!), then export it and save it to the obj folder, than use the g command
+    Takes all the .rlg files it finds in the "rlg" folder, reads their data, then for each of them it creates a .dae file containing the vertices and faces (separated by group).
+    For 3D model mods, import this .dae file in a program like blender, move the vertices around (but do NOT add/remove any!), then export it and save it to the "obj" folder, than use the g command
     
     g
-    Takes all the .rlg files it finds in the "rlg" folder and for each of them it searches the "obj" folder for an .obj file that has the same name.
-    For each file it finds the .obj of, it reads the vertices of the .obj and overwrites the .rlg's vertices with those.
+    Takes all the .rlg files it finds in the "rlg" folder and for each of them it searches the "obj" folder for an .dae file that has the same name.
+    For each file it finds the .dae of, it reads the vertices of the .dae and overwrites the .rlg's vertices with those.
     (Saves the modified .rlg as a copy in the "output" folder. The original .rlg won't be modified)
               
     
     DEV COMMANDS:
 
-    es 
-    Same as "e" command, but each group (mesh) is saved in a different .obj file (for dev purposes only. Those objs can't be used to recreate an .rlg file)
-
-    dae
-    Similar to "e", except it creates a .dae file instead of .obj (currently WIP)
+    eobjs 
+    [disabled in current version, will be re-added in the future] Same as "e" command, but each group (mesh) is saved in a different .obj file (for dev purposes only. Those objs can't be used to recreate an .rlg file)
 
     d
     Create a .txt file containing various data about each group (mesh) of the .rlg file. The .txt will be saved in the "output" folder.
 '''
+
+
+
+
+def __main__():
+    while True:
+        r = input("\n\n" +PROMPT_STR_BASE_COMMANDS+ "\n\n")
+
+        # Check if response is exit
+        if(r == "x"):
+            exit()
+
+        rlg_filenames = util.get_all_filenames_of_specified_extension( DIR_PATH_INPUT_NLG_FORMATS, ".rlg" )
+        dae_filenames = util.get_all_filenames_of_specified_extension( DIR_PATH_INPUT_COMMON_FORMATS, ".dae" )
+
+        # check response and execute if it's a valid command
+        if(r == "d"):
+            for rlgname in rlg_filenames:
+                rlgpath = DIR_PATH_INPUT_NLG_FORMATS + rlgname
+                print_misc_data_to_file( rlgname, rlg.read_rlg( rlgpath ) )
+
+        elif(r == "e"):
+            for rlgname in rlg_filenames:
+                rlgpath = DIR_PATH_INPUT_NLG_FORMATS + rlgname
+                daepath = ( DIR_PATH_OUTPUT + rlgname ).replace( ".rlg", ".dae" )
+                dae.create_dae( rlg.read_rlg( rlgpath ), daepath )
+
+        elif(r == "g"):
+            for daename in dae_filenames:
+                daepath = DIR_PATH_INPUT_COMMON_FORMATS + daename
+                dae.read_dae( daepath )
+        
+        elif(r == "help"):
+            print( PROMPT_STR_HELP + "\n")
+
+        else:
+            print("invalid input")
+            
+        input("Press Enter to continue...")
 
 
 
@@ -109,38 +144,7 @@ def print_misc_data_to_file( filename, model3d ):
 
 
 
-# START OF CODE
-while True:
-    r = input("\n\n" +PROMPT_STR_BASE_COMMANDS+ "\n\n")
 
-    # Check if response is exit
-    if(r == "x"):
-        exit()
+if __name__ == "__main__":
+    __main__()
 
-    rlg_filenames = util.get_all_filenames_of_specified_extension( DIR_PATH_INPUT_NLG_FORMATS, ".rlg" )
-    dae_filenames = util.get_all_filenames_of_specified_extension( DIR_PATH_INPUT_COMMON_FORMATS, ".dae" )
-
-    # check response and execute if it's a valid command
-    if(r == "d"):
-        for rlgname in rlg_filenames:
-            rlgpath = DIR_PATH_INPUT_NLG_FORMATS + rlgname
-            print_misc_data_to_file( rlgname, rlglib.read_rlg( rlgpath ) )
-
-    elif(r == "e"):
-        for rlgname in rlg_filenames:
-            rlgpath = DIR_PATH_INPUT_NLG_FORMATS + rlgname
-            daepath = ( DIR_PATH_OUTPUT + rlgname ).replace( ".rlg", ".dae" )
-            daelib.create_dae( rlglib.read_rlg( rlgpath ), daepath )
-
-    elif(r == "g"):
-        for daename in dae_filenames:
-            daepath = DIR_PATH_INPUT_COMMON_FORMATS + daename
-            daelib.read_dae( daepath )
-    
-    elif(r == "help"):
-        print( PROMPT_STR_HELP + "\n")
-
-    else:
-        print("invalid input")
-        
-    input("Press Enter to continue...")
