@@ -1,3 +1,4 @@
+import math
 import re
 from modules import m3d, util, rlgtool_xml
 
@@ -254,10 +255,17 @@ def read_dae( filepath ):
 
     for i, geometry_tag in enumerate(geometry_tags):
 
-        # VERTICES
-        # find triangles tag
+        
+        # find triangles tag 
+        # in order to be able to parse triangles and vertices we need this tag's data first
         triangles_tag = geometry_tag.find( 'triangles' )
 
+        # TRIANGLES
+        array_of_ints_as_string = triangles_tag.find( 'p' ).content
+        input_tag_count = len( triangles_tag.findall( 'input' ) )
+        triangles = str_to_num_list( array_of_ints_as_string, stride=3, to_integer=True, input_count=input_tag_count, offset=0 )
+        
+        # VERTICES
         # get the ids for the tags we need
         input_vertex_tag = triangles_tag.find( 'input', { 'semantic' : 'VERTEX' } )
         vertices_id = input_vertex_tag.get( 'source' ).replace( '#', '' )
@@ -265,6 +273,17 @@ def read_dae( filepath ):
         normals_id = input_normal_tag.get( 'source' ).replace( '#', '' )
         input_texcoord_tag = triangles_tag.find( 'input', { 'semantic' : 'TEXCOORD' } )
         texcoords_id = input_texcoord_tag.get( 'source' ).replace( '#', '' )
+
+        # get the p tag's data
+        # we want to know what data is associated to each vertex position (normals, uv)
+        p_data = str_to_num_list( array_of_ints_as_string, stride=input_tag_count, to_integer=True )
+        vertex_indices = {}  # dict of indices
+        for sublist in p_data:
+            print( sublist[0] )
+            if sublist[0] not in vertex_indices:
+                vertex_indices.update( { sublist[0] : sublist[1:] } )  # detect which normal and uv indices are associated to the position index
+        normal_offset = int( input_normal_tag.get( 'offset' ) )
+        texcoord_offset = int( input_texcoord_tag.get( 'offset' ))
 
         # look for the vertices tag
         vertices_tag = geometry_tag.findid( vertices_id )
@@ -287,22 +306,22 @@ def read_dae( filepath ):
         source_tag = geometry_tag.findid( texcoords_id )
         array_of_floats_as_string = source_tag.find( 'float_array' ).content
         vertex_uvs = str_to_num_list( array_of_floats_as_string, 2 )
+        # flip them
+        for uv in vertex_uvs:
+            uv[1] = 1 - uv[1]
 
         vertices = []
 
         for j, vertex_position in enumerate(vertex_positions):
 
             vertex_absolute_id += 1
-            new_vertex =  m3d.Vertex( vertex_absolute_id, j, 0, i, vertex_position, vertex_normals[j],
-                                            vertex_uvs[j], 0, 0, 0, 0, 0, [0,0,0,0], [0,0,0,0] )
+            new_vertex =  m3d.Vertex( vertex_absolute_id, j, 0, i, vertex_position, 
+                                        vertex_normals[ vertex_indices[ j ][ normal_offset-1 ] ],
+                                        vertex_uvs[ vertex_indices[ j ][ texcoord_offset-1 ] ],
+                                              0, 0, 0, 0, 0, [0,0,0,0], [0,0,0,0] )
             
             vertices.append( new_vertex )
 
-
-        # TRIANGLES
-        array_of_ints_as_string = triangles_tag.find( 'p' ).content
-        triangles = str_to_num_list( array_of_ints_as_string, 3, True )
-        # TODO: finish this
 
 
         # MESH DATA (just mesh_hash_id for now)
@@ -319,7 +338,7 @@ def read_dae( filepath ):
     return model3d
 
 
-def str_to_num_list( string, stride = 1, to_integer = False ):
+def str_to_num_list( string, stride = 1, to_integer = False, input_count = 1, offset = 0 ):
 
     list_of_strings_raw = string.split(' ')
     list_of_strings = []

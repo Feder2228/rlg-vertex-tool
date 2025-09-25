@@ -1,3 +1,4 @@
+import math
 import struct, re, glob
 
 # 3D MATHS UTILITY FUNCTIONS
@@ -118,3 +119,10 @@ def float_to_bytes( number ):
         return bytes.fromhex( hexstr[2:] )
     return b'\x00\x00\x00\x00'
     
+# This function takes a float value as input. This float is supposed to be between 0 and 1 (it represents uv coordinates)
+# It then multiplies this float by 1024. Then it casts it to a bytes object with the length of 2.
+# That's how uv coordinates are represented in .rlg files.
+def texcoord_to_bytes( uv_float ):
+    uv_int = int( uv_float * 1024 )
+    return uv_int.to_bytes( 2, 'big', signed=True )
+

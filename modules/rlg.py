@@ -1,5 +1,4 @@
-import os
-import shutil
+import shutil, math
 from modules import m3d, util
 
 # SECTION IDENTIFIER CONSTANTS
@@ -102,7 +101,9 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
     for i, mesh in enumerate( old_model3d.meshes ):
 
         # get the offset and vertex count of the vertex section
-        offset = mesh.vertex_attributes[ 0 ].offset
+        offset_for_positions = mesh.vertex_attributes[ 0 ].offset
+        offset_for_normals = mesh.vertex_attributes[ 1 ].offset
+        offset_for_uvs = mesh.vertex_attributes[ 2 ].offset
         vertex_count = mesh.mesh_data.vertex_count
 
         # take the new vertices
@@ -112,8 +113,10 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
             new_mesh = new_model3d.meshes[ 11 - i ]
         new_vertices = new_mesh.vertices
 
-        # go to the place where vertices are stored
-        rlgfile.seek( start_of_data + offset, 0 )
+
+        # VERTEX POSITIONS
+        # go to the place where vertex positions are stored
+        rlgfile.seek( start_of_data + offset_for_positions, 0 )
 
         print( "DEBUG: vertex_count={0} len(newverts)={1}".format( vertex_count, len( new_vertices ) ) )
         
@@ -125,14 +128,69 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
 
             for coord in new_vertex.position:
                 new_bytes = util.float_to_bytes( coord )
-
-                old_bytes = rlgfile.read( 4 )
-                rlgfile.seek( -4, 1 )
-
+                # old_bytes = rlgfile.read( 4 ) # DEBUG LINE
+                # rlgfile.seek( -4, 1 )         # DEBUG LINE
                 rlgfile.write( new_bytes )
 
                 # if new_bytes != old_bytes:
                     # print( "DEBUG: wrote something new! " + str( new_bytes ) + " " + str( coord ) )
+
+        
+        # VERTEX NORMALS
+        # go to the place where vertex normals are stored
+        rlgfile.seek( start_of_data + offset_for_normals, 0 )
+
+        # loop to replace all the vertex positions
+        for j in range( vertex_count ):  
+
+            # take a new vertex, then loop on its coordinates and replace all of them
+            new_vertex = new_vertices[ j ]
+
+            for coord in new_vertex.normal:
+                new_bytes = util.float_to_bytes( coord )
+                old_bytes = rlgfile.read( 4 )   # DEBUG LINE
+                rlgfile.seek( -4, 1 )           # DEBUG LINE
+                rlgfile.write( new_bytes )
+
+                if new_bytes != old_bytes:
+                    print( "DEBUG: normal new! " + str( new_bytes ) + " " + str( coord ) )
+
+
+        # UV COORDINATES
+        # go to the place where vertex normals are stored
+        rlgfile.seek( start_of_data + offset_for_uvs, 0 )
+
+        # loop to replace all the vertex positions
+        for j in range( vertex_count ):  
+
+            # take a new vertex, then loop on its coordinates and replace all of them
+            new_vertex = new_vertices[ j ]
+
+            for coord in new_vertex.uv0:
+
+                # Adjust uv values outside of the [0-1) range. Will remove the if and debug print soon.
+                # It's not unusual for texcoords in .dae files to have values outside the range,
+                # but it's weird that my script is exporting a negative coordinate from the file
+                # when the uv mapping value in .rlg files is supposedly uint16, which is unsigned.
+                # Will remove this when I fix that
+                #
+                # edit: this is actually wrong. Idk why exactly, but it's wrong
+                # vertices that are outside the range are mapped to the wrong thing
+                # TODO: fix
+                #
+                if coord < 0 or coord > 1:
+                    print( "DEBUG: this uv coord has a value of " + str( coord ) + " ( vertex " + str( j ) + " of mesh " + str( i ) + ")" )
+                print( "DEBUG: tell " + str( rlgfile.tell() ) )
+
+                new_bytes = util.texcoord_to_bytes( coord )
+                old_bytes = rlgfile.read( 2 )  # DEBUG LINE
+                rlgfile.seek( -2, 1 )          # DEBUG LINE
+                rlgfile.write( new_bytes )
+
+                # if new_bytes != old_bytes:
+                    # print( "DEBUG: uv new! " + str( new_bytes ) + " " + str( coord ) )
+
+
 
     rlgfile.close()
 
@@ -209,10 +267,14 @@ def get_vertices_from_rlg( rlg ):
                        util.bytes_to_float( rlg.read(4) ), 
                        util.bytes_to_float( rlg.read(4) ) ]
             
+            # I'm not sure if I should read the uv coordinates as signed
+            # According to KillzXGaming's research it's unsigned,
+            # but from my experience reading it as unsigned breaks some textures (even if barely noticeable).
+            # 
             offset = vertex_attributes[ i*10 + 2 ].offset
             rlg.seek( start_of_data + offset + (j*4), 0 )
-            attribute_0xcc = [ int.from_bytes( rlg.read(2), "big" ) / 1024,
-                               int.from_bytes( rlg.read(2), "big" ) / 1024 ]
+            attribute_0xcc = [ int.from_bytes( rlg.read(2), "big", signed=True ) / 1024,
+                               int.from_bytes( rlg.read(2), "big", signed=True ) / 1024 ]
 
             offset = vertex_attributes[ i*10 + 3 ].offset
             rlg.seek( start_of_data + offset + (j*4), 0 )
