@@ -7,8 +7,8 @@ import modules.util as util
 # CONSTANTS
 # DIRECTORY PATHS
 DIR_PATH_OUTPUT = "output/"
-DIR_PATH_INPUT_NLG_FORMATS = "rlg/"
-DIR_PATH_INPUT_COMMON_FORMATS = "obj/"
+DIR_PATH_INPUT_NLG_FORMATS = "input rlg/"
+DIR_PATH_INPUT_COMMON_FORMATS = "input dae/"
 
 # PROMPT STRINGS
 PROMPT_STR_BASE_COMMANDS = '''-- Select a command --
@@ -21,11 +21,11 @@ PROMPT_STR_HELP = '''
     REGULAR COMMANDS:
 
     e
-    Takes all the .rlg files it finds in the "rlg" folder, reads their data, then for each of them it creates a .dae file containing the vertices and faces (separated by group).
-    For 3D model mods, import this .dae file in a program like blender, move the vertices around (but do NOT add/remove any!), then export it and save it to the "obj" folder, than use the g command
+    Takes all the .rlg files it finds in the "input rlg" folder, reads their data, then for each of them it creates a .dae file containing the vertices and faces (separated by group).
+    For 3D model mods, import this .dae file in a program like blender, move the vertices around (but do NOT add/remove any!), then export it and save it to the "input dae" folder, than use the g command
     
     g
-    Takes all the .rlg files it finds in the "rlg" folder and for each of them it searches the "obj" folder for an .dae file that has the same name.
+    Takes all the .rlg files it finds in the "input rlg" folder and for each of them it searches the "input dae" folder for an .dae file that has the same name.
     For each file it finds the .dae of, it reads the vertices of the .dae and overwrites the .rlg's vertices with those.
     (Saves the modified .rlg as a copy in the "output" folder. The original .rlg won't be modified)
               
@@ -89,6 +89,7 @@ def export_rlg_as_dae( rlg_filenames ):
         daename = rlgname + ".dae"
         daepath = DIR_PATH_OUTPUT + daename
         dae.create_dae( rlg.read_rlg( rlgpath ), daepath )
+        print( 'created dae file at {0}'.format( daepath ) )
 
 
 def generate_rlg_from_rlg_and_dae( rlg_filenames, dae_filenames, auto_export=False ):
