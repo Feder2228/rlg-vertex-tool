@@ -23,19 +23,21 @@ VERTICES:
 FACES:
 {4}
 '''
-STR_MESH_DATA = '''index_start_offset: {0}
-index_count: {1}
-index_format: {2}
-vertex_count: {3}
-unknown0xA: {4}
-material_hash_id: {5} 
-unknown0x16: {6}
-unknown0x1A: {7}
-mesh_hash_id: {8} 
-material_offset: {9} 
-unknown_0x22: {10}
-unknown_0x26: {11}
-unknown_0x2A: {12}
+STR_MESH_DATA = '''0x00 index_start_offset: {0}
+0x06 index_format: {1}
+0x04 index_count: {2}
+0x08 vertex_count: {3}
+0x0A unknown: {4}
+0x0B attrib_count: {5}
+0x0C unknown: {6}
+0x10 material_hash_id: {7} 
+0x14 mesh_hash_id: {8} 
+0x18 unknown: {9}
+0x1C unknown: {10}
+0x20 material_offset: {11} 
+0x24 unknown: {12}
+0x28 unknown: {13}
+0x2C unknown: {14}
 '''
 
 
@@ -90,27 +92,30 @@ class Mesh:
         return face_vertices
 
 class MeshData:
-    def __init__( self, index_start_offset = 0, index_count = 0, index_format = 0, vertex_count = 0, unknown0xA = 0,
-                  material_hash_id = 0, unknown0x16 = 0, unknown0x1A = 0, mesh_hash_id = 0,
-                  material_offset = 0, unknown_0x22 = 0, unknown_0x26 = 0, unknown_0x2A = 0 ):
+    def __init__( self, index_start_offset=0, index_count=0, index_format=0, vertex_count=0, unknown0xA=0,
+                  attribute_count=0, unknown0xC=0, material_hash_id=0, unknown0x18=0, unknown0x1C=0, mesh_hash_id=0,
+                  material_offset=0, unknown_0x24=0, unknown_0x28=0, unknown_0x2C=0 ):
         self.index_start_offset = index_start_offset
         self.index_count = index_count
         self.index_format = index_format
         self.vertex_count = vertex_count
         self.unknown0xA = unknown0xA
+        self.attribute_count = attribute_count
+        self.unknown0xC = unknown0xC
         self.material_hash_id = material_hash_id
-        self.unknown0x16 = unknown0x16
-        self.unknown0x1A = unknown0x1A
+        self.unknown0x18 = unknown0x18
+        self.unknown0x1C = unknown0x1C
         self.mesh_hash_id = mesh_hash_id
         self.material_offset = material_offset
-        self.unknown_0x22 = unknown_0x22
-        self.unknown_0x26 = unknown_0x26
-        self.unknown_0x2A = unknown_0x2A
+        self.unknown_0x24 = unknown_0x24
+        self.unknown_0x28 = unknown_0x28
+        self.unknown_0x2C = unknown_0x2C
     
     def __str__( self ):
-        return STR_MESH_DATA.format( self.index_start_offset, self.index_count, self.index_format, self.vertex_count, self.unknown0xA,
-                  self.material_hash_id, self.unknown0x16, self.unknown0x1A, self.mesh_hash_id,
-                  self.material_offset, self.unknown_0x22, self.unknown_0x26, self.unknown_0x2A )
+        return STR_MESH_DATA.format( self.index_start_offset, self.index_format, self.index_count,
+                  self.vertex_count, self.unknown0xA, self.attribute_count, self.unknown0xC,
+                  self.material_hash_id, self.mesh_hash_id, self.unknown0x18, self.unknown0x1C,
+                  self.material_offset, self.unknown_0x24, self.unknown_0x28, self.unknown_0x2C )
 
 
 class VertexAttribute:

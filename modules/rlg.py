@@ -128,12 +128,8 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
 
             for coord in new_vertex.position:
                 new_bytes = util.float_to_bytes( coord )
-                # old_bytes = rlgfile.read( 4 ) # DEBUG LINE
-                # rlgfile.seek( -4, 1 )         # DEBUG LINE
                 rlgfile.write( new_bytes )
 
-                # if new_bytes != old_bytes:
-                    # print( "DEBUG: wrote something new! " + str( new_bytes ) + " " + str( coord ) )
 
         
         # VERTEX NORMALS
@@ -148,12 +144,8 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
 
             for coord in new_vertex.normal:
                 new_bytes = util.float_to_bytes( coord )
-                old_bytes = rlgfile.read( 4 )   # DEBUG LINE
-                rlgfile.seek( -4, 1 )           # DEBUG LINE
                 rlgfile.write( new_bytes )
 
-                if new_bytes != old_bytes:
-                    print( "DEBUG: normal new! " + str( new_bytes ) + " " + str( coord ) )
 
 
         # UV COORDINATES
@@ -168,27 +160,11 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
 
             for coord in new_vertex.uv0:
 
-                # Adjust uv values outside of the [0-1) range. Will remove the if and debug print soon.
-                # It's not unusual for texcoords in .dae files to have values outside the range,
-                # but it's weird that my script is exporting a negative coordinate from the file
-                # when the uv mapping value in .rlg files is supposedly uint16, which is unsigned.
-                # Will remove this when I fix that
-                #
-                # edit: this is actually wrong. Idk why exactly, but it's wrong
-                # vertices that are outside the range are mapped to the wrong thing
-                # TODO: fix
-                #
                 if coord < 0 or coord > 1:
                     print( "DEBUG: this uv coord has a value of " + str( coord ) + " ( vertex " + str( j ) + " of mesh " + str( i ) + ")" )
-                print( "DEBUG: tell " + str( rlgfile.tell() ) )
 
                 new_bytes = util.texcoord_to_bytes( coord )
-                old_bytes = rlgfile.read( 2 )  # DEBUG LINE
-                rlgfile.seek( -2, 1 )          # DEBUG LINE
                 rlgfile.write( new_bytes )
-
-                # if new_bytes != old_bytes:
-                    # print( "DEBUG: uv new! " + str( new_bytes ) + " " + str( coord ) )
 
 
 
@@ -433,29 +409,33 @@ def get_mesh_data_from_rlg(rlg):
 
     # go to where data starts
     rlg.seek( start_of_data , 0 )
-    start_of_data = rlg.tell()
 
     # read data
     mesh_data_instances = []
 
-    while rlg.tell() < start_of_data+section_size:  # TODO: edit the condition to make it more readable
+    while rlg.tell() < start_of_data+section_size: 
         index_start_offset = int.from_bytes( rlg.read(4), "big" )
-        index_flags = int.from_bytes( rlg.read(4), "big" )
+        index_format = int.from_bytes( rlg.read(2), "big" )
+        index_count = int.from_bytes( rlg.read(2), "big" )
         vertex_count = int.from_bytes( rlg.read(2), "big" )
-        unknown_0x0a = int.from_bytes( rlg.read(4), "big" )
+        unknown_0x0a = int.from_bytes( rlg.read(1), "big" )
+        attribute_count = int.from_bytes( rlg.read(1), "big" )
+        unknown_0x0c = int.from_bytes( rlg.read(4), "big" )  # I'm pretty sure this is the vertex_attribute instance offset
         material_hash_id = int.from_bytes( rlg.read(4), "big" )
         mesh_hash_id = int.from_bytes( rlg.read(4), "big" )
-        unknown_0x16 = int.from_bytes( rlg.read(4), "big" )
-        unknown_0x1a = int.from_bytes( rlg.read(4), "big" )
+        unknown_0x18 = int.from_bytes( rlg.read(4), "big" )
+        unknown_0x1c = int.from_bytes( rlg.read(4), "big" )
         material_offset = int.from_bytes( rlg.read(4), "big" )
-        unknown_0x22 = int.from_bytes( rlg.read(4), "big" )
-        unknown_0x26 = int.from_bytes( rlg.read(4), "big" )
-        unknown_0x2a = int.from_bytes( rlg.read(6), "big" )
+        unknown_0x24 = int.from_bytes( rlg.read(4), "big" )
+        unknown_0x28 = int.from_bytes( rlg.read(4), "big" )
+        unknown_0x2c = int.from_bytes( rlg.read(4), "big" )
 
-        new_mesh_data_instance = m3d.MeshData( index_start_offset, index_flags & 0xffffff, index_flags >> 24, vertex_count,
-                 unknown_0x0a, material_hash_id, unknown_0x16, unknown_0x1a, mesh_hash_id,  material_offset, unknown_0x22,
-                 unknown_0x26, unknown_0x2a,   
-        )
+        # TODO: rename variables in MeshData class
+        new_mesh_data_instance = m3d.MeshData( index_start_offset=index_start_offset, index_count=index_count, index_format=index_format,
+                                               vertex_count=vertex_count, unknown0xA=unknown_0x0a, attribute_count=attribute_count,
+                                               unknown0xC=unknown_0x0c, material_hash_id=material_hash_id, unknown0x18=unknown_0x18, 
+                                               unknown0x1C=unknown_0x1c, mesh_hash_id=mesh_hash_id, material_offset=material_offset,
+                                               unknown_0x24=unknown_0x24, unknown_0x28=unknown_0x28, unknown_0x2C=unknown_0x2c )
 
         mesh_data_instances.append( new_mesh_data_instance )
   

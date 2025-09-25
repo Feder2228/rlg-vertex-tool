@@ -279,7 +279,6 @@ def read_dae( filepath ):
         p_data = str_to_num_list( array_of_ints_as_string, stride=input_tag_count, to_integer=True )
         vertex_indices = {}  # dict of indices
         for sublist in p_data:
-            print( sublist[0] )
             if sublist[0] not in vertex_indices:
                 vertex_indices.update( { sublist[0] : sublist[1:] } )  # detect which normal and uv indices are associated to the position index
         normal_offset = int( input_normal_tag.get( 'offset' ) )
