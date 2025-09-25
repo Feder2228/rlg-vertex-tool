@@ -106,7 +106,11 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
         vertex_count = mesh.mesh_data.vertex_count
 
         # take the new vertices
-        new_vertices = new_model3d.meshes[ 11 - i ].vertices  # TODO: this fix is fucking stupid. rewrite this
+        new_mesh = new_model3d.get_mesh_by_id( mesh.mesh_data.mesh_hash_id )
+        if new_mesh == None:
+            print( "WARNING: mesh with hashid {0} not found. Falling back to default mesh order (last to first)".format( hex( mesh.mesh_data.mesh_hash_id ) ) )
+            new_mesh = new_model3d.meshes[ 11 - i ]
+        new_vertices = new_mesh.vertices
 
         # go to the place where vertices are stored
         rlgfile.seek( start_of_data + offset, 0 )
@@ -127,8 +131,8 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
 
                 rlgfile.write( new_bytes )
 
-                if new_bytes != old_bytes:
-                    print( "DEBUG: wrote something new! " + str( new_bytes ) + " " + str( coord ) )
+                # if new_bytes != old_bytes:
+                    # print( "DEBUG: wrote something new! " + str( new_bytes ) + " " + str( coord ) )
 
     rlgfile.close()
 

@@ -45,6 +45,7 @@ class Model3d:
         self.matrix_data = matrix_data
         self.model_data = model_data
         self.meshes = meshes
+
     def __str__( self ):
         output = STR_MATRIX.format( self.matrix_data, str( self.model_data ) )
         if self.model_data != None:
@@ -55,6 +56,12 @@ class Model3d:
             output += "MESH {0}:\n\n".format( str(i) )
             output += str( mesh ) + '\n\n\n\n'
         return output
+    
+    def get_mesh_by_id( self, hash_id ):
+        for mesh in self.meshes:
+            if mesh.mesh_data.mesh_hash_id == hash_id:
+                return mesh
+        return None
 
 class ModelData:
     def __init__( self, hash_id, mesh_count, unknown0x8 ):
@@ -83,9 +90,9 @@ class Mesh:
         return face_vertices
 
 class MeshData:
-    def __init__( self, index_start_offset, index_count, index_format, vertex_count, unknown0xA,
-                  material_hash_id, unknown0x16, unknown0x1A, mesh_hash_id,
-                  material_offset, unknown_0x22, unknown_0x26, unknown_0x2A ):
+    def __init__( self, index_start_offset = 0, index_count = 0, index_format = 0, vertex_count = 0, unknown0xA = 0,
+                  material_hash_id = 0, unknown0x16 = 0, unknown0x1A = 0, mesh_hash_id = 0,
+                  material_offset = 0, unknown_0x22 = 0, unknown_0x26 = 0, unknown_0x2A = 0 ):
         self.index_start_offset = index_start_offset
         self.index_count = index_count
         self.index_format = index_format

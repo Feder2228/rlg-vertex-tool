@@ -1,3 +1,4 @@
+import re
 from modules import m3d, util, rlgtool_xml
 
 # DAE STRINGS
@@ -17,6 +18,8 @@ DAE_STR_INPUT_TEMPLATE_OFFSET = '<input semantic="{0}" source="{1}" offset="{2}"
 DAE_STR_INPUT_TEMPLATE_OFFSET_SET = '<input semantic="{0}" source="{1}" offset="{2}" set="{3}"/>'
 DAE_STR_VERTICES_TEMPLATE = '<vertices id="{0}">'
 DAE_STR_TRIANGLES_TEMPLATE = '<triangles count="{0}">'
+
+REGEX_HASHID = r'(?<=_hashid0x)[0-9a-f]+'
 
 
 def create_dae( model, filepath ):
@@ -40,7 +43,9 @@ def create_dae( model, filepath ):
     for i, geometry in enumerate( model.meshes ):
 
         # open geometry tag
-        geometry_name = filename_root + "_" + str(i)
+        # the geometry will have an id attribute that contains the "mesh_hash_id" value
+        # this will be helpful to keep track of which mesh is which
+        geometry_name = filename_root + "_hashid" + hex( geometry.mesh_data.mesh_hash_id )
         id = geometry_name + '-mesh'
         daefile.write( ( TAB * tab_count ) + DAE_STR_GEOMETRY_TEMPLATE.format( id, geometry_name ) + '\n' )
         tab_count += 1
@@ -192,7 +197,7 @@ def create_dae( model, filepath ):
     for i, geometry in enumerate( model.meshes ):
 
         # open node tag
-        geometry_name = filename_root + "_" + str(i)
+        geometry_name = filename_root + "_hashid" + hex( geometry.mesh_data.mesh_hash_id )
         daefile.write( ( TAB * tab_count ) + DAE_STR_NODE_TEMPLATE.format( geometry_name, geometry_name, "NODE" ) + '\n' )
         tab_count += 1
 
@@ -286,7 +291,7 @@ def read_dae( filepath ):
         vertices = []
 
         for j, vertex_position in enumerate(vertex_positions):
-            print( "DEBUG: vpos " + str( vertex_position ) )
+
             vertex_absolute_id += 1
             new_vertex =  m3d.Vertex( vertex_absolute_id, j, 0, i, vertex_position, vertex_normals[j],
                                             vertex_uvs[j], 0, 0, 0, 0, 0, [0,0,0,0], [0,0,0,0] )
@@ -299,7 +304,15 @@ def read_dae( filepath ):
         triangles = str_to_num_list( array_of_ints_as_string, 3, True )
         # TODO: finish this
 
-        new_mesh = m3d.Mesh( [], [], [], vertices, [] )
+
+        # MESH DATA (just mesh_hash_id for now)
+        hash_id_match = re.search( REGEX_HASHID, geometry_tag.get( 'id' ) ) 
+        hash_id = int( hash_id_match.group(), 16 ) if hash_id_match != None else -1
+        print( "DEBUG: m_hashid " + str( hash_id ) )
+        mesh_data = m3d.MeshData( mesh_hash_id = hash_id )
+
+
+        new_mesh = m3d.Mesh( mesh_data, [], [], vertices, [] )
 
         model3d.meshes.append( new_mesh )
 
