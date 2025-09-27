@@ -12,38 +12,38 @@ DIR_PATH_INPUT_COMMON_FORMATS = "input dae/"
 
 # PROMPT STRINGS
 PROMPT_STR_BASE_COMMANDS = '''-- Select a command --
-    e - extract data from .rlg (save as .dae)
-    g - generate new .rlg (use original .rlg plus a modified .dae)
-    x - exit
+    dec - decode (part of) a .rlg file (save as .dae)
+    enc - encode .rlg (use original .rlg plus a modified .dae)
+    exit - exit
     help - more info      
 '''
 PROMPT_STR_HELP = '''
     REGULAR COMMANDS:
 
-    e
+    dec (d)
     Takes all the .rlg files it finds in the "input rlg" folder, reads their data, then for each of them it creates a .dae file containing the vertices and faces (separated by group).
-    For 3D model mods, import this .dae file in a program like blender, move the vertices around (but do NOT add/remove any!), then export it and save it to the "input dae" folder, than use the g command
+    For 3D model mods, import this .dae file in a program like blender, move the vertices around (but do NOT add/remove any!), then export it and save it to the "input dae" folder, than use the enc command
     
-    g
+    enc (e)
     Takes all the .rlg files it finds in the "input rlg" folder and for each of them it searches the "input dae" folder for an .dae file that has the same name.
     For each file it finds the .dae of, it reads the vertices of the .dae and overwrites the .rlg's vertices with those.
     (Saves the modified .rlg as a copy in the "output" folder. The original .rlg won't be modified)
               
-    x
+    exit (x)
     exit
 
-    help
+    help (h)
     show this message
     
     
     DEV COMMANDS:
 
-    ge
-    Does the g command thing, then for each .rlg file it creates, it exports it as .dae again.
+    enc2 (e2)
+    Does the enc command thing, then for each .rlg file it creates, it exports it as .dae again.
     You'll find both an .rlg and its .dae equivalent in the output folder.
     Nice QoL feature for testing.
 
-    d
+    txt (t)
     Create a .txt file containing various data about each group (mesh) of the .rlg file. The .txt will be saved in the "output" folder.
 '''
 
@@ -55,26 +55,26 @@ def __main__():
         r = input("\n\n" +PROMPT_STR_BASE_COMMANDS+ "\n\n")
 
         # Check if response is exit
-        if( r == "x" ):
+        if( r in [ 'exit', 'x' ] ):
             exit()
 
         rlg_filenames = util.get_all_filenames_of_specified_extension( DIR_PATH_INPUT_NLG_FORMATS, ".rlg" )
         dae_filenames = util.get_all_filenames_of_specified_extension( DIR_PATH_INPUT_COMMON_FORMATS, ".dae" )
 
         # check response and execute if it's a valid command
-        if( r == "d" ):
+        if( r in [ 'txt', 't' ] ):
             print_misc_data_to_file( rlg_filenames )
 
-        elif( r == "e" ):
+        elif( r in [ 'dec', 'd' ] ):
             export_rlg_as_dae( rlg_filenames )
 
-        elif( r == "g" ):
+        elif( r in [ 'enc', 'e'] ):
             generate_rlg_from_rlg_and_dae( rlg_filenames, dae_filenames )
 
-        elif( r == "ge" ):
+        elif( r in [ 'enc2', 'e2' ] ):
             generate_rlg_from_rlg_and_dae( rlg_filenames, dae_filenames, auto_export=True )
         
-        elif( r == "help" ):
+        elif( r in [ 'help', 'h' ] ):
             print( PROMPT_STR_HELP + "\n")
 
         else:
