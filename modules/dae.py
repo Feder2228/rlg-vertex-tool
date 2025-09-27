@@ -1,6 +1,6 @@
 import math
 import re
-from modules import m3d, util, rlgtool_xml
+from modules import federxml, m3d, util
 
 # DAE STRINGS
 DAE_STR_HEADER = '''<?xml version="1.0" encoding="utf-8"?>
@@ -246,7 +246,7 @@ def read_dae( filepath ):
 
     model3d = m3d.Model3d()
 
-    xmlroot = rlgtool_xml.read_xml( filepath )
+    xmlroot = federxml.read_xml( filepath )
 
     # loop through all geometry tags
     geometry_tags = xmlroot.findall( 'geometry' )
