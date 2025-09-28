@@ -122,16 +122,19 @@ def byte_hex(byte):
 def bytes_to_float( bytes ):
     return struct.unpack( '!f', bytes )[0]
 
-def float_to_bytes( number ):
+def float_to_bytes4( number ):
     hexstr = hex(struct.unpack('<I', struct.pack( '<f', number ))[0])
     if hexstr != "0x0":
         return bytes.fromhex( hexstr[2:] )
     return b'\x00\x00\x00\x00'
     
-# This function takes a float value as input. This float is supposed to be between 0 and 1 (it represents uv coordinates)
+# This function takes a float value as input.
 # It then multiplies this float by 1024. Then it casts it to a bytes object with the length of 2.
 # That's how uv coordinates are represented in .rlg files.
-def texcoord_to_bytes( uv_float ):
-    uv_int = int( uv_float * 1024 )
-    return uv_int.to_bytes( 2, 'big', signed=True )
+def float_to_bytes2( float ):
+    integer = int( float * 1024 )
+    return integer.to_bytes( 2, 'big', signed=True )
 
+def float_to_bytes1( float ):
+    integer = int( float * 255 )
+    return integer.to_bytes( 2, 'big', signed=True )

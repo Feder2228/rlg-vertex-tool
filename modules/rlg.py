@@ -61,7 +61,7 @@ def read_rlg( filepath ):
     vertices = get_vertices( rlgfile, section_map[ SECTION_VERTEX_DATA ][ 0 ], mesh_datas=mesh_datas, vaps=vertex_attributes )
 
 
-    # Loop through groups
+    # Loop through meshes
     for i, mesh_data_instance in enumerate( mesh_datas ):
 
 
@@ -116,79 +116,59 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
     # loop through every mesh of the file's model
     for i, mesh in enumerate( old_model3d.meshes ):
 
-        # get the offset and vertex count of the vertex section
-        #
-        # TODO: this heavily relies on the VAPs being ordered in this specific way.
-        # rewrite this part of the code.
-        # also normals could have stride of 3, so detect the stride and act according to its value.
-        # (if it's 12 do a thing, if it's 3 do a different thing)
-        #
-        offset_for_positions = mesh.vertex_attributes[ 0 ].offset
-        offset_for_normals = mesh.vertex_attributes[ 1 ].offset
-        offset_for_uvs = mesh.vertex_attributes[ 2 ].offset
-        vertex_count = mesh.mesh_data.vertex_count
 
         # take the new vertices
         new_mesh = new_model3d.get_mesh_by_id( mesh.mesh_data.mesh_hash_id )
         if new_mesh == None:
             print( "WARNING: mesh with hashid {0} not found. Falling back to default mesh order (last to first)".format( hex( mesh.mesh_data.mesh_hash_id ) ) )
-            new_mesh = new_model3d.meshes[ 11 - i ]  # TODO: should probably replace the 11 with "len( old_model3d.meshes )"
+            new_mesh = new_model3d.meshes[ len( old_model3d.meshes ) - i ]  # TODO: should probably replace the 11 with "len( old_model3d.meshes )"
         new_vertices = new_mesh.vertices
 
 
-        # VERTEX POSITIONS
-        # go to the place where vertex positions are stored
-        rlgfile.seek( vert_section.body_location() + offset_for_positions, 0 )
 
-        if util.DEBUG:
-            print( "DEBUG: vertex_count={0} len(newverts)={1}".format( vertex_count, len( new_vertices ) ) )
-        
-        # loop to replace all the vertex positions
-        for j in range( vertex_count ):  
+        for j, vap in enumerate( mesh.vertex_attributes ):
 
-            # take a new vertex, then loop on its coordinates and replace all of them
-            new_vertex = new_vertices[ j ]
-
-            for coord in new_vertex.position:
-                new_bytes = util.float_to_bytes( coord )
-                rlgfile.write( new_bytes )
+            # go to the place indicated by the VAP
+            rlgfile.seek( vert_section.body_location() + vap.offset, 0 )
 
 
-        
-        # VERTEX NORMALS
-        # go to the place where vertex normals are stored
-        rlgfile.seek( vert_section.body_location() + offset_for_normals, 0 )
+            if vap.type in [ VAP_POSITION_A, VAP_POSITION_B ]:
+                if vap.stride == 12:
+                    for k in range( mesh.mesh_data.vertex_count ):  
+                        rlgfile.write( util.float_to_bytes4( new_vertices[ k ].position[0] ) )
+                        rlgfile.write( util.float_to_bytes4( new_vertices[ k ].position[1] ) )
+                        rlgfile.write( util.float_to_bytes4( new_vertices[ k ].position[2] ) )
+                elif vap.stride == 6:
+                    for k in range( mesh.mesh_data.vertex_count ):  
+                        rlgfile.write( util.float_to_bytes1( new_vertices[ k ].position[0] ) )
+                        rlgfile.write( util.float_to_bytes1( new_vertices[ k ].position[1] ) )
+                        rlgfile.write( util.float_to_bytes1( new_vertices[ k ].position[2] ) )
+                else:
+                    print( 'huh, pos stride is ' + str( vap.stride ) )  # this shouldn't happen
+            
 
-        # loop to replace all the vertex positions
-        for j in range( vertex_count ):  
+            elif vap.type in [ VAP_NORMAL_A, VAP_NORMAL_B ]:
+                if vap.stride == 12:
+                    for k in range( mesh.mesh_data.vertex_count ):  
+                        rlgfile.write( util.float_to_bytes4( new_vertices[ k ].normal[0] ) )
+                        rlgfile.write( util.float_to_bytes4( new_vertices[ k ].normal[1] ) )
+                        rlgfile.write( util.float_to_bytes4( new_vertices[ k ].normal[2] ) )
+                elif vap.stride == 3:
+                    for k in range( mesh.mesh_data.vertex_count ):  
+                        rlgfile.write( util.float_to_bytes2( new_vertices[ k ].normal[0] ) )
+                        rlgfile.write( util.float_to_bytes2( new_vertices[ k ].normal[1] ) )
+                        rlgfile.write( util.float_to_bytes2( new_vertices[ k ].normal[2] ) )
+                else:
+                    print( 'huh, normal stride is ' + str( vap.stride ) )  # this shouldn't happen
 
-            # take a new vertex, then loop on its coordinates and replace all of them
-            new_vertex = new_vertices[ j ]
 
-            for coord in new_vertex.normal:
-                new_bytes = util.float_to_bytes( coord )
-                rlgfile.write( new_bytes )
-
-
-
-        # UV COORDINATES
-        # go to the place where vertex normals are stored
-        rlgfile.seek( vert_section.body_location() + offset_for_uvs, 0 )
-
-        # loop to replace all the vertex positions
-        for j in range( vertex_count ):  
-
-            # take a new vertex, then loop on its coordinates and replace all of them
-            new_vertex = new_vertices[ j ]
-
-            for coord in new_vertex.uv0:
-
-                if ( coord < 0 or coord > 1 ) and util.DEBUG:
-                    print( "DEBUG: this uv coord has a value of " + str( coord ) + " ( vertex " + str( j ) + " of mesh " + str( i ) + ")" )
-
-                new_bytes = util.texcoord_to_bytes( coord )
-                rlgfile.write( new_bytes )
-
+            elif vap.type in [ VAP_UV0_A, VAP_UV0_B, VAP_UV0_C ]:
+                if vap.stride == 4:
+                    for k in range( mesh.mesh_data.vertex_count ):  
+                        rlgfile.write( util.float_to_bytes2( new_vertices[ k ].uv0[0] ) )
+                        rlgfile.write( util.float_to_bytes2( new_vertices[ k ].uv0[1] ) )
+                else:
+                    print( 'huh, uv0 stride is ' + str( vap.stride ) )  # this shouldn't happen
 
 
     rlgfile.close()
@@ -196,14 +176,10 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
 
 
 
-# Function to read the vertices of a rlg file. Returns a list of Vertex objects
-# TODO: rework it completely and do it the proper way. 
-# It needs to be more flexible so that it can read any rlg file.
-# It currently doesn't check the V.A.Pointer type, it just assumes it.
-# It also assumes the stride, which for normals is no good, since it could 
-# sometimes be 3 instead of 12 
+# Function to read the vertices of a rlg file. Returns a list which contains lists of Vertex object.
+# One list per each matrix.
 #
-def get_vertices( rlgfile, section, mesh_datas, vaps ):  # meshes is actually a list of mesh data instances. Renaming this soon.
+def get_vertices( rlgfile, section, mesh_datas, vaps ): 
     
 
     # we need mesh data and vertex attributes in order to find out how many vertices there are
@@ -247,7 +223,7 @@ def get_vertices( rlgfile, section, mesh_datas, vaps ):  # meshes is actually a 
                                                         int.from_bytes( rlgfile.read(2), 'big', signed=True ) / 1024,
                                                         int.from_bytes( rlgfile.read(2), 'big', signed=True ) / 1024 ]
                 else:
-                    print( 'wth, pos stride is ' + vap.stride )  # this shouldn't happen
+                    print( 'huh, pos stride is ' + str( vap.stride ) )  # this shouldn't happen
 
 
             # If it's normals...
@@ -259,11 +235,11 @@ def get_vertices( rlgfile, section, mesh_datas, vaps ):  # meshes is actually a 
                                                       util.bytes_to_float( rlgfile.read(4) ) ]
                 elif vap.stride == 3:
                     for k in range( mesh_data.vertex_count ):
-                        mesh_vertices[ k ].normal = [ int.from_bytes( rlgfile.read(1), 'big', signed=True ) / 1024,
-                                                      int.from_bytes( rlgfile.read(1), 'big', signed=True ) / 1024,
-                                                      int.from_bytes( rlgfile.read(1), 'big', signed=True ) / 1024 ]
+                        mesh_vertices[ k ].normal = [ int.from_bytes( rlgfile.read(1), 'big', signed=True ) / 255,
+                                                      int.from_bytes( rlgfile.read(1), 'big', signed=True ) / 255,
+                                                      int.from_bytes( rlgfile.read(1), 'big', signed=True ) / 255 ]
                 else:
-                    print( 'wth, normal stride is ' + vap.stride )  # this shouldn't happen
+                    print( 'huh, normal stride is ' + str( vap.stride ) )  # this shouldn't happen
 
 
             # If it's uv coordinates (0)...
@@ -273,7 +249,7 @@ def get_vertices( rlgfile, section, mesh_datas, vaps ):  # meshes is actually a 
                         mesh_vertices[ k ].uv0 = [ int.from_bytes( rlgfile.read(2), 'big', signed=True ) / 1024,
                                                       int.from_bytes( rlgfile.read(2), 'big', signed=True ) / 1024 ]
                 else:
-                        print( 'wth, uv0 stride is: ' + vap.stride )  # this shouldn't happen
+                    print( 'huh, uv0 stride is: ' + str( vap.stride ) )  # this shouldn't happen
 
 
             # If it's uv coordinates (1)...
@@ -291,7 +267,7 @@ def get_vertices( rlgfile, section, mesh_datas, vaps ):  # meshes is actually a 
                                                       int.from_bytes( rlgfile.read(1), 'big' ),
                                                       int.from_bytes( rlgfile.read(1), 'big' ) ]
                 else:
-                    print( 'wth, bone indices stride is: ' + vap.stride )  # this shouldn't happen
+                    print( 'huh, bone indices stride is: ' + vap.stride )  # this shouldn't happen
 
 
             # If it's the list of bone weights...
@@ -303,7 +279,7 @@ def get_vertices( rlgfile, section, mesh_datas, vaps ):  # meshes is actually a 
                                                       util.bytes_to_float( rlgfile.read(4) ),  
                                                       util.bytes_to_float( rlgfile.read(4) ) ]
                 else:
-                    print( 'wth, bone weights stride is: ' + vap.stride )  # this shouldn't happen
+                    print( 'huh, bone weights stride is: ' + vap.stride )  # this shouldn't happen
 
 
             # If it's one of the unknown values...
