@@ -8,6 +8,8 @@ REGEX_ATTRIBUTE_KEY = r'(?<=\s)[^\s=]+(?==)'
 REGEX_ATTRIBUTE_VALUE = r'(?<==")[^"]+(?=")'
 REGEX_IS_TAG_BODYLESS = r'\/[\s]*>'
 REGEX_CONTENT = r'[^>]*(?=<\/)'
+REGEX_COMMENT = r'<!--.*?-->'  # needs re.DOTALL
+REGEX_IS_COMMENT = r'<!--'
 
 class XmlNode:
     def __init__( self, name, attributes, has_body, content ):
@@ -152,13 +154,40 @@ def read_xml( filepath ):
 # an integer, offset of the tag from the beginning of the string. The place where the tag starts in the string
 def parse_first_xml_tag( text ): 
 
-    tag_match = re.search( REGEX_TAG, text )  # tag_match: string containing just the tag, delimited by <>
+    tag = ''
 
-    if tag_match == None:
-        return None
 
-    tag = tag_match.group()
-    tag_offset = tag_match.span()[0]  # position of the tag into the string
+    while True:
+        tag_match = re.search( REGEX_TAG, text )  # tag_match: string containing just the tag, delimited by <>
+
+        if tag_match == None:
+            return None
+
+        tag = tag_match.group()
+        tag_offset = tag_match.span()[0]  # position of the tag into the string
+
+
+        # If it's not a comment, break from this loop and parse the tag values
+        is_comment_match = re.search( REGEX_IS_COMMENT, tag )
+        if is_comment_match == None:
+            break
+
+
+        # If it is a comment, ignore it and look for the next tag
+        #
+        # From the "text" string remove the comment, so that on next iteration
+        # the text starts from after the comment, and the comment isn't detected
+        # again, which otherwise would cause an infinite loop.
+        #
+        comment_match = re.search( REGEX_COMMENT, text, re.DOTALL )
+
+        if( comment_match == None ):  
+            return None  # if the comment doesn't match, this is probably the end of the file
+
+        end_of_comment = comment_match.span()[1]
+        text = text[ end_of_comment: ] 
+
+
 
 
     # detect tag name and detect whether it's a closing or opening tag
@@ -223,6 +252,8 @@ def parse_first_xml_tag( text ):
     return returned_dict
 
 
+
+
 def get_xml_tag_attributes( text ):
 
     pos = 0
@@ -242,6 +273,8 @@ def get_xml_tag_attributes( text ):
         pos += matches[1].span()[1] + 1 # find the end of the tag value. Start parsing next one from there
 
     return attributes
+
+
 
 
 # return match objects for the attribute key and attribute value
