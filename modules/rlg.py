@@ -49,16 +49,15 @@ def read_rlg( filepath ):
 
 
     # Read general model data (data that is not associated with a mesh in particular)
-    matrix = get_matrix_from_rlg( rlgfile, section_map[ SECTION_MATRIX_DATA ][ 0 ] )
-    model_data = get_model_data_from_rlg( rlgfile, section_map[ SECTION_MODEL_DATA ][ 0 ] )
+    matrix = get_matrix( rlgfile, section_map[ SECTION_MATRIX_DATA ][ 0 ] )
+    model_data = get_modeldata( rlgfile, section_map[ SECTION_MODEL_DATA ][ 0 ] )
     model3d = m3d.Model3d( matrix, model_data, [] )
       
     
     # Read data that is associated to a mesh
-    mesh_data = get_mesh_data_from_rlg( rlgfile, section_map[ SECTION_MESH_DATA ][ 0 ] )
-    index_data = get_index_data_from_rlg( rlgfile, section_map[ SECTION_INDEX_DATA ][ 0 ], mesh_data )
-    vertex_attributes = get_vaps( rlgfile, section_map[ SECTION_VERTEX_ATTRIBUTES ][ 0 ] ) 
-    print( vertex_attributes )
+    mesh_data = get_meshdata( rlgfile, section_map[ SECTION_MESH_DATA ][ 0 ] )
+    index_data = get_indices( rlgfile, section_map[ SECTION_INDEX_DATA ][ 0 ], mesh_data )
+    vertex_attributes = get_vaps( rlgfile, section_map[ SECTION_VERTEX_ATTRIBUTES ][ 0 ], mesh_data ) 
     vertices = get_vertices( rlgfile, section_map[ SECTION_VERTEX_DATA ][ 0 ], meshes=mesh_data, vaps=vertex_attributes )
 
 
@@ -325,44 +324,44 @@ def get_vertices( rlg, section, meshes, vaps ):  # meshes is actually a list of 
 
 # returns a list of lists of VertexAttribute objects. Each dict is a vertex attribute instance
 # each list is for a different mesh
-def get_vaps( rlg, section ):  
+# VAP stands for "vertex attribute pointer"
+#
+def get_vaps( rlg, section, mesh_datas ):  
     
     # TODO: REWORK THIS CODE IT SUCKS
 
     # set some variables for the loop
-    rlg.seek( section.body_location() ,0)
-    vertex_attributes = []
-    group = -1
-
-    vertex_attributes_of_mesh = []
-
-    # read data
-    while rlg.tell() < section.end(): 
-
-        offset = int.from_bytes( rlg.read(4), "big" )
-        type = int.from_bytes( rlg.read(1), "big" )
-        stride = int.from_bytes( rlg.read(1), "big" )
-        unknown_0x6 = int.from_bytes( rlg.read(2), "big" )
-
-        if( type == VAP_POSITION_A ):
-            group += 1
-            if group > 0:  # this garbage piece of code will be gone soon
-                vertex_attributes.append( vertex_attributes_of_mesh )
-            vertex_attributes_of_mesh = []
-
-        new_vertex_attribute = m3d.VertexAttribute( group, offset, type, stride, unknown_0x6 )
-
-        vertex_attributes_of_mesh.append( new_vertex_attribute )
+    vaps = []
 
 
-    vertex_attributes.append( vertex_attributes_of_mesh )
+    for i, mesh_data in enumerate( mesh_datas ):
 
-    return vertex_attributes
+        rlg.seek( section.body_location() + mesh_data.unknown0xC, 0 )  # unknown0xC is vap offset I'm pretty sure
+
+        mesh_vaps = []
+
+        for j in range( mesh_data.attribute_count ):
+
+            offset = int.from_bytes( rlg.read(4), 'big' )
+            type = int.from_bytes( rlg.read(1), 'big' )
+            stride = int.from_bytes( rlg.read(1), 'big' )
+            unknown_0x6 = int.from_bytes( rlg.read(2), 'big' )
+
+            if util.DEBUG:
+                print( 'iter {0} {1}  offset {2}  type {3}  stride {4}'.format( i,j,offset,type,stride ) )
+
+            mesh_vaps.append( m3d.VertexAttribute( group=i, offset=offset, type=type, stride=stride, unknown0x6=unknown_0x6 )  )
+
+    
+        vaps.append( mesh_vaps )
+
+
+    return vaps 
 
 
 
 
-def get_model_data_from_rlg( rlgfile, section ):
+def get_modeldata( rlgfile, section ):
     
     # go to where model data starts
     rlgfile.seek( section.body_location(), 0 )
@@ -383,7 +382,7 @@ def get_model_data_from_rlg( rlgfile, section ):
 
 
 
-def get_mesh_data_from_rlg( rlg, section ):
+def get_meshdata( rlg, section ):
     
     # go to where data starts
     rlg.seek( section.body_location() , 0 )
@@ -397,8 +396,8 @@ def get_mesh_data_from_rlg( rlg, section ):
         index_count = int.from_bytes( rlg.read(2), "big" )
         vertex_count = int.from_bytes( rlg.read(2), "big" )
         unknown_0x0a = int.from_bytes( rlg.read(1), "big" )
-        attribute_count = int.from_bytes( rlg.read(1), "big" )
-        unknown_0x0c = int.from_bytes( rlg.read(4), "big" )  # I'm pretty sure this is the vertex_attribute instance offset
+        vap_count = int.from_bytes( rlg.read(1), "big" )
+        vap_offset = int.from_bytes( rlg.read(4), "big" )  # I'm pretty sure this is the vertex_attribute instance offset
         material_hash_id = int.from_bytes( rlg.read(4), "big" )
         mesh_hash_id = int.from_bytes( rlg.read(4), "big" )
         unknown_0x18 = int.from_bytes( rlg.read(4), "big" )
@@ -410,8 +409,8 @@ def get_mesh_data_from_rlg( rlg, section ):
 
         # TODO: rename variables in MeshData class
         new_mesh_data_instance = m3d.MeshData( index_offset=index_start_offset, index_count=index_count, index_format=index_format,
-                                               vertex_count=vertex_count, unknown0xA=unknown_0x0a, attribute_count=attribute_count,
-                                               unknown0xC=unknown_0x0c, material_hash_id=material_hash_id, unknown0x18=unknown_0x18, 
+                                               vertex_count=vertex_count, unknown0xA=unknown_0x0a, attribute_count=vap_count,
+                                               unknown0xC=vap_offset, material_hash_id=material_hash_id, unknown0x18=unknown_0x18, 
                                                unknown0x1C=unknown_0x1c, mesh_hash_id=mesh_hash_id, material_offset=material_offset,
                                                unknown_0x24=unknown_0x24, unknown_0x28=unknown_0x28, unknown_0x2C=unknown_0x2c )
 
@@ -424,7 +423,7 @@ def get_mesh_data_from_rlg( rlg, section ):
 
 # Read data from index section. Return a list containing one list per mesh.
 # Each of these lists contains the indices of the mesh
-def get_index_data_from_rlg( rlgfile, section, mesh_data ):
+def get_indices( rlgfile, section, mesh_data ):
 
     # go to where data starts
     rlgfile.seek( section.body_location(), 0 )
@@ -454,7 +453,7 @@ def get_index_data_from_rlg( rlgfile, section, mesh_data ):
 
 
 
-def get_matrix_from_rlg( rlgfile, section ):
+def get_matrix( rlgfile, section ):
 
     rlgfile.seek( section.body_location(), 0 )
 
