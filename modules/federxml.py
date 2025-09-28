@@ -1,5 +1,8 @@
 import re
 
+TAB = "  "
+XML_TAG = '<?xml version="1.0" encoding="utf-8"?>'
+
 # REGEX FOR XML PARSING
 REGEX_TAG = r'<[^>]*>'
 REGEX_NAME_FOR_OPENING_OR_BODYLESS_TAG = r'(?<=<)[^\s>\/]+(?=[>\s\/])' 
@@ -22,7 +25,48 @@ class XmlNode:
     def append_child( self, new_child ):
         self.children.append( new_child )
 
-    # returns a string containing a tree of tag names
+    # returns a string containing all the xml data in xml format (this node and its children)
+    def get_string_xml( self ):
+        return self.get_string_xml_rec( 0 )
+    
+    def get_string_xml_rec( self, level ):
+        
+        xml = ''
+
+        # write the tag name
+        xml += ( TAB * level ) + '<' + self.name 
+
+        # write all the attributes
+        for key in self.attributes:
+            xml += ' {0}="{1}"'.format( key, self.attributes[key] ) 
+
+        # close the angular bracket
+        if self.has_body:
+            xml += '>' 
+        else:
+            xml += ' />\n' 
+            return xml
+
+        # write content
+        xml += self.content 
+
+        # go newline if there are children
+        if len( self.children ) > 0:
+            xml += '\n' 
+
+        # children tags
+        for child in self.children:
+            xml += child.get_string_xml_rec( level+1 )
+
+        # close tag
+        if len( self.children ) > 0:
+            xml += ( TAB * level )
+        xml += '</{0}>\n'.format( self.name ) 
+
+        return xml
+
+
+    # returns a string containing a tree of tag names. Just the names
     def get_string_tree_of_names( self ):
         return self.get_string_tree_of_names_rec( 0 )
 
@@ -32,6 +76,7 @@ class XmlNode:
             children_tree_of_names += child.get_string_tree_of_names_rec( level+1 )
         return (" "*level) + self.name + "\n" + children_tree_of_names
     
+    # returns attributes
     def get( self, key ):
         if not key in self.attributes:
             return None
@@ -87,6 +132,14 @@ class XmlNode:
     def findid( self, id ):
         return self.find( None, { 'id': id } )
     
+
+
+# create an xml file given the file path and an XmlNode object
+def create_xml( filepath, xmlnode ):
+    xmlfile = open( filepath, 'w' )
+    xmlfile.write( XML_TAG + '\n' )
+    xmlfile.write( xmlnode.get_string_xml() )
+ 
 
 
 # get a tree of nodes from an xml file
