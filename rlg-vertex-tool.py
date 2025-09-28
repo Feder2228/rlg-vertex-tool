@@ -3,7 +3,6 @@ import modules.dae as dae
 import modules.rlg as rlg
 import modules.util as util
 
-
 # CONSTANTS
 # DIRECTORY PATHS
 DIR_PATH_OUTPUT = "output/"
@@ -133,8 +132,6 @@ def print_misc_data_to_file( rlg_filenames ):
         txtfile.close()
 
         print( rlgname + "_miscdata.txt file successfully created in output folder" )
-
-
 
 
 if __name__ == "__main__":

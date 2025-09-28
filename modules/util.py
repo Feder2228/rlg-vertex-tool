@@ -80,22 +80,8 @@ def adjust_normals_for_dae( tri, geometry ):  # TODO: move this into the Model3d
 
 
 
-# MISC UTILITY FUNCTIONS
-# Function to convert a bytearray into a string where each byte corresponds to two hexadecimal digits (in ascii)
-def byte_hex_str(bytes):
-    string = ""
-    for i in bytes:
-        string += byte_hex(i)
-    return string
 
-
-def byte_hex(byte):
-    upper4 = (byte & 0xf0) >> 4 
-    lower4 = byte & 0x0f
-    chars = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f']
-    return (chars[upper4] + chars[lower4])
-
-
+# FILE UTILITY FUNCTIONS
 # Function that scans a folder for files and returns a list containing all the file names
 def get_all_filenames_of_specified_extension( dir_path, extension ):
 
@@ -111,6 +97,26 @@ def get_all_filenames_of_specified_extension( dir_path, extension ):
         filenames.append(file)
 
     return filenames
+
+
+
+
+
+
+# DATA TYPE UTILITY FUNCTIONS
+# Function to convert a bytearray into a string where each byte corresponds to two hexadecimal digits (in ascii)
+def byte_hex_str(bytes):
+    string = ""
+    for i in bytes:
+        string += byte_hex(i)
+    return string
+
+
+def byte_hex(byte):
+    upper4 = (byte & 0xf0) >> 4 
+    lower4 = byte & 0x0f
+    chars = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f']
+    return (chars[upper4] + chars[lower4])
 
 
 def bytes_to_float( bytes ):
