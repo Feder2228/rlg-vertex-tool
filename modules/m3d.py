@@ -119,7 +119,7 @@ class MeshData:
 
 
 class VertexAttribute:
-    def __init__( self, group, offset, type, stride, unknown0x6 ):  
+    def __init__( self, group=0, offset=-1, type=-1, stride=0, unknown0x6=0 ):  
         self.group = group  # TODO: should "group" be removed?
         self.offset = offset
         self.type = type
@@ -129,9 +129,11 @@ class VertexAttribute:
         return ""
 
 class Vertex:
-    def __init__( self, absolute_id, relative_id, offset, group, position, normal, uv0,
-                  unknown0xED, unknown0x52, unknown0xC0, unknown0xD6, unknown0xD7,
-                  bone_ids, bone_weights ):
+    def __init__( self, absolute_id=None, relative_id=None, offset=None,
+                  group=None, position=None, normal=None, uv0=None,
+                  unknown0xED=None, unknown0x52=None, unknown0xC0=None, 
+                  unknown0xD6=None, unknown0xD7=None, bone_ids=None, 
+                  bone_weights=None ):
         self.absolute_id = absolute_id  # TODO: maybe I can remove this and replace it with a method "get_absolute_id()"
         self.relative_id = relative_id 
         self.offset = offset  # TODO: should probably remove this

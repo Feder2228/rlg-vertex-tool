@@ -55,14 +55,14 @@ def read_rlg( filepath ):
       
     
     # Read data that is associated to a mesh
-    mesh_data = get_meshdata( rlgfile, section_map[ SECTION_MESH_DATA ][ 0 ] )
-    index_data = get_indices( rlgfile, section_map[ SECTION_INDEX_DATA ][ 0 ], mesh_data )
-    vertex_attributes = get_vaps( rlgfile, section_map[ SECTION_VERTEX_ATTRIBUTES ][ 0 ], mesh_data ) 
-    vertices = get_vertices( rlgfile, section_map[ SECTION_VERTEX_DATA ][ 0 ], meshes=mesh_data, vaps=vertex_attributes )
+    mesh_datas = get_meshdata( rlgfile, section_map[ SECTION_MESH_DATA ][ 0 ] )
+    index_data = get_indices( rlgfile, section_map[ SECTION_INDEX_DATA ][ 0 ], mesh_datas )
+    vertex_attributes = get_vaps( rlgfile, section_map[ SECTION_VERTEX_ATTRIBUTES ][ 0 ], mesh_datas ) 
+    vertices = get_vertices( rlgfile, section_map[ SECTION_VERTEX_DATA ][ 0 ], mesh_datas=mesh_datas, vaps=vertex_attributes )
 
 
     # Loop through groups
-    for i, mesh_data_instance in enumerate(mesh_data):
+    for i, mesh_data_instance in enumerate( mesh_datas ):
 
 
         index_data_of_this_mesh = index_data[ i ]
@@ -196,32 +196,6 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
 
 
 
-
-
-#def rlg_get_section_info( rlg, section_identifier ):
-#
-#    data = rlg_get_data( rlg )
-#    location = data.find( section_identifier )       
-#
-#    # flags      
-#    rlg.seek( location, 0 )
-#    flags = int.from_bytes( rlg.read(2), "big" )   
-#
-#    # section size
-#    rlg.seek( location + 4, 0 )
-#    section_size = int.from_bytes( rlg.read(4), "big" )
-#
-#    info = {
-#        'location' : location,
-#        'start_of_data' : location + 8,
-#        'flags' : flags,
-#        'section_size' : section_size 
-#    }
-#
-#    return info
-
-
-
 # Function to read the vertices of a rlg file. Returns a list of Vertex objects
 # TODO: rework it completely and do it the proper way. 
 # It needs to be more flexible so that it can read any rlg file.
@@ -229,7 +203,7 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
 # It also assumes the stride, which for normals is no good, since it could 
 # sometimes be 3 instead of 12 
 #
-def get_vertices( rlg, section, meshes, vaps ):  # meshes is actually a list of mesh data instances. Renaming this soon.
+def get_vertices( rlgfile, section, mesh_datas, vaps ):  # meshes is actually a list of mesh data instances. Renaming this soon.
     
 
     # we need mesh data and vertex attributes in order to find out how many vertices there are
@@ -237,88 +211,128 @@ def get_vertices( rlg, section, meshes, vaps ):  # meshes is actually a list of 
 
     # set up some variables for the loop
     vertices = []
-    absolute_id = 0
-
-    # repeat for each interval: get all the vertices in the interval
-    for i, mesh in enumerate( meshes ):
-        
-        relative_id = 0
-
-        vertices_of_mesh = []
-
-        for j in range( mesh.vertex_count ):  
-            
-            offset = vaps[ i ][ 0 ].offset  
-            rlg.seek( section.body_location() + offset + (j*12), 0 )
-            current_byte = rlg.tell() - section.body_location()  # TODO: remove this?
-            position = [ util.bytes_to_float( rlg.read(4) ),  
-                         util.bytes_to_float( rlg.read(4) ), 
-                         util.bytes_to_float( rlg.read(4) ) ]
-           
-            offset = vaps[ i ][ 1 ].offset
-            rlg.seek( section.body_location() + offset + (j*12), 0 )
-            normal = [ util.bytes_to_float( rlg.read(4) ),  
-                       util.bytes_to_float( rlg.read(4) ), 
-                       util.bytes_to_float( rlg.read(4) ) ]
-            
-            # I'm not sure if I should read the uv coordinates as signed
-            # According to KillzXGaming's research it's unsigned,
-            # but from my experience reading it as unsigned breaks some textures (even if barely noticeable).
-            # 
-            offset = vaps[ i ][ 2 ].offset
-            rlg.seek( section.body_location() + offset + (j*4), 0 )
-            attribute_0xcc = [ int.from_bytes( rlg.read(2), "big", signed=True ) / 1024,
-                               int.from_bytes( rlg.read(2), "big", signed=True ) / 1024 ]
-
-            offset = vaps[ i ][ 3 ].offset
-            rlg.seek( section.body_location() + offset + (j*4), 0 )
-            attribute_0xed = [ int.from_bytes( rlg.read(4), "big" ) ]
-
-            offset = vaps[ i ][ 4 ].offset
-            rlg.seek( section.body_location() + offset + (j*4), 0 )
-            attribute_0x52 = [ int.from_bytes( rlg.read(4), "big" ) ]
-
-            offset = vaps[ i ][ 5 ].offset
-            rlg.seek( section.body_location() + offset + (j*4), 0 )
-            attribute_0xc0 = [ int.from_bytes( rlg.read(4), "big" ) ]
-
-            offset = vaps[ i ][ 6 ].offset
-            rlg.seek( section.body_location() + offset + (j*4), 0 )
-            attribute_0xd6 = [ int.from_bytes( rlg.read(4), "big" ) ]
-
-            offset = vaps[ i ][ 7 ].offset
-            rlg.seek( section.body_location() + offset + (j*4), 0 )
-            attribute_0xd7 = [ int.from_bytes( rlg.read(4), "big" ) ]
-
-            offset = vaps[ i ][ 8 ].offset
-            rlg.seek( section.body_location() + offset + (j*4), 0 )
-            attribute_0xd4 = [ int.from_bytes( rlg.read(1), "big" ),
-                               int.from_bytes( rlg.read(1), "big" ),
-                               int.from_bytes( rlg.read(1), "big" ),
-                               int.from_bytes( rlg.read(1), "big" ) ]
-
-            offset = vaps[ i ][ 9 ].offset
-            rlg.seek( section.body_location() + offset + (j*16), 0 )
-            attribute_0xb0 = [ util.bytes_to_float( rlg.read(4) ),  
-                               util.bytes_to_float( rlg.read(4) ), 
-                               util.bytes_to_float( rlg.read(4) ),
-                               util.bytes_to_float( rlg.read(4) ) ]
-
-            new_vertex = m3d.Vertex( absolute_id, relative_id, current_byte, i, position, normal,
-                                            attribute_0xcc, attribute_0xed, attribute_0x52, attribute_0xc0,
-                                            attribute_0xd6, attribute_0xd7, attribute_0xd4, attribute_0xb0)
-            vertices_of_mesh.append( new_vertex )
-
-            current_byte = rlg.tell() - section.body_location()
-
-            absolute_id += 1
-            relative_id += 1
 
 
-        vertices.append( vertices_of_mesh )
+    # iterate through all mesh_data instances
+    for i, mesh_data in enumerate ( mesh_datas ):
+
+
+        # Intialize vertices, with default values. 
+        # These values are invalid, but will be changed later.
+        #
+        mesh_vertices = []
+        for j in range( mesh_data.vertex_count ):
+            mesh_vertices.append( m3d.Vertex( relative_id=j ) )
+
+
+        # iterate through all VAPs of the mesh
+        for vap in vaps[ i ]:
+
+            # go to the offset that is indicated by the VAP
+            rlgfile.seek( section.body_location() + vap.offset, 0 )
+
+
+            # Now, act accordingly to what kind of data this is.
+            #
+            # If it's vertex positions...
+            if vap.type in [ VAP_POSITION_A, VAP_POSITION_B ]:
+                if vap.stride == 12:
+                    for k in range( mesh_data.vertex_count ):
+                        mesh_vertices[ k ].position = [ util.bytes_to_float( rlgfile.read(4) ),  
+                                                        util.bytes_to_float( rlgfile.read(4) ), 
+                                                        util.bytes_to_float( rlgfile.read(4) ) ]
+                elif vap.stride == 6:
+                    for k in range( mesh_data.vertex_count ):
+                        mesh_vertices[ k ].position = [ int.from_bytes( rlgfile.read(2), 'big', signed=True ) / 1024,
+                                                        int.from_bytes( rlgfile.read(2), 'big', signed=True ) / 1024,
+                                                        int.from_bytes( rlgfile.read(2), 'big', signed=True ) / 1024 ]
+                else:
+                    print( 'wth, pos stride is ' + vap.stride )  # this shouldn't happen
+
+
+            # If it's normals...
+            elif vap.type in [ VAP_NORMAL_A, VAP_NORMAL_B ]:
+                if vap.stride == 12:
+                    for k in range( mesh_data.vertex_count ):
+                        mesh_vertices[ k ].normal = [ util.bytes_to_float( rlgfile.read(4) ),  
+                                                      util.bytes_to_float( rlgfile.read(4) ), 
+                                                      util.bytes_to_float( rlgfile.read(4) ) ]
+                elif vap.stride == 3:
+                    for k in range( mesh_data.vertex_count ):
+                        mesh_vertices[ k ].normal = [ int.from_bytes( rlgfile.read(1), 'big', signed=True ) / 1024,
+                                                      int.from_bytes( rlgfile.read(1), 'big', signed=True ) / 1024,
+                                                      int.from_bytes( rlgfile.read(1), 'big', signed=True ) / 1024 ]
+                else:
+                    print( 'wth, normal stride is ' + vap.stride )  # this shouldn't happen
+
+
+            # If it's uv coordinates (0)...
+            elif vap.type in [ VAP_UV0_A, VAP_UV0_B, VAP_UV0_C ]:
+                if vap.stride == 4:
+                    for k in range( mesh_data.vertex_count ):
+                        mesh_vertices[ k ].uv0 = [ int.from_bytes( rlgfile.read(2), 'big', signed=True ) / 1024,
+                                                      int.from_bytes( rlgfile.read(2), 'big', signed=True ) / 1024 ]
+                else:
+                        print( 'wth, uv0 stride is: ' + vap.stride )  # this shouldn't happen
+
+
+            # If it's uv coordinates (1)...
+            elif vap.type == VAP_UV1_A:
+                print( 'uv1 detected. What even is uv1 though?' )  # I have no idea what to do with this for now. 
+                # I'll just put this print message here so that when we open a file that has vap type 0x17 we notice it
+
+
+            # If it's the list of bone indices...
+            elif vap.type == VAP_BONE_INDICES_A:
+                if vap.stride == 4:
+                    for k in range( mesh_data.vertex_count ):
+                        mesh_vertices[ k ].bone_ids = [ int.from_bytes( rlgfile.read(1), 'big' ),
+                                                      int.from_bytes( rlgfile.read(1), 'big' ),
+                                                      int.from_bytes( rlgfile.read(1), 'big' ),
+                                                      int.from_bytes( rlgfile.read(1), 'big' ) ]
+                else:
+                    print( 'wth, bone indices stride is: ' + vap.stride )  # this shouldn't happen
+
+
+            # If it's the list of bone weights...
+            elif vap.type == VAP_BONE_WEIGHTS_A:
+                if vap.stride == 16:
+                    for k in range( mesh_data.vertex_count ):
+                        mesh_vertices[ k ].bone_weights = [ util.bytes_to_float( rlgfile.read(4) ),  
+                                                      util.bytes_to_float( rlgfile.read(4) ),
+                                                      util.bytes_to_float( rlgfile.read(4) ),  
+                                                      util.bytes_to_float( rlgfile.read(4) ) ]
+                else:
+                    print( 'wth, bone weights stride is: ' + vap.stride )  # this shouldn't happen
+
+
+            # If it's one of the unknown values...
+            elif vap.type == VAP_UNK0:
+                for k in range( mesh_data.vertex_count ):
+                    mesh_vertices[ k ].unknown0xED = rlgfile.read( vap.stride )
+
+            elif vap.type == VAP_UNK1:
+                for k in range( mesh_data.vertex_count ):
+                    mesh_vertices[ k ].unknown0x52 = rlgfile.read( vap.stride )
+
+            elif vap.type == VAP_UNK2:
+                for k in range( mesh_data.vertex_count ):
+                    mesh_vertices[ k ].unknown0xC0 = rlgfile.read( vap.stride )
+
+            elif vap.type == VAP_UNK3:
+                for k in range( mesh_data.vertex_count ):
+                    mesh_vertices[ k ].unknown0xD6 = rlgfile.read( vap.stride )
+
+            elif vap.type == VAP_UNK4:
+                for k in range( mesh_data.vertex_count ):
+                    mesh_vertices[ k ].unknown0xD7 = rlgfile.read( vap.stride )
+
+
+        vertices.append( mesh_vertices )
 
 
     return vertices
+
 
 
 
@@ -328,24 +342,26 @@ def get_vertices( rlg, section, meshes, vaps ):  # meshes is actually a list of 
 #
 def get_vaps( rlg, section, mesh_datas ):  
     
-    # TODO: REWORK THIS CODE IT SUCKS
-
-    # set some variables for the loop
+    # set sup ome variables for the loop
     vaps = []
 
 
+    # iterate through every mesh
     for i, mesh_data in enumerate( mesh_datas ):
 
-        rlg.seek( section.body_location() + mesh_data.unknown0xC, 0 )  # unknown0xC is vap offset I'm pretty sure
-
+        # go to the location of this meshes' VAPs 
+        rlg.seek( section.body_location() + mesh_data.unknown0xC, 0 )  # unknown0xC is vap offset.
         mesh_vaps = []
 
+        # repeat VAP_count times, read the next VAP 
+        # (read all the Vertex Attribute Pointers of the mesh)
+        #
         for j in range( mesh_data.attribute_count ):
 
             offset = int.from_bytes( rlg.read(4), 'big' )
             type = int.from_bytes( rlg.read(1), 'big' )
             stride = int.from_bytes( rlg.read(1), 'big' )
-            unknown_0x6 = int.from_bytes( rlg.read(2), 'big' )
+            unknown_0x6 = int.from_bytes( rlg.read(2), 'big' )  # RLG only
 
             if util.DEBUG:
                 print( 'iter {0} {1}  offset {2}  type {3}  stride {4}'.format( i,j,offset,type,stride ) )
