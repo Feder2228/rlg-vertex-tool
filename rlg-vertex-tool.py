@@ -2,6 +2,7 @@ import os
 import modules.dae as dae
 import modules.rlg as rlg
 import modules.util as util
+import getopt
 
 # CONSTANTS
 # DIRECTORY PATHS
