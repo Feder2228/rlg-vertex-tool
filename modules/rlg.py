@@ -121,7 +121,7 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
         new_mesh = new_model3d.get_mesh_by_id( mesh.mesh_data.mesh_hash_id )
         if new_mesh == None:
             print( "WARNING: mesh with hashid {0} not found. Falling back to default mesh order (last to first)".format( hex( mesh.mesh_data.mesh_hash_id ) ) )
-            new_mesh = new_model3d.meshes[ len( old_model3d.meshes ) - i ]  # TODO: should probably replace the 11 with "len( old_model3d.meshes )"
+            new_mesh = new_model3d.meshes[ len( old_model3d.meshes ) - i ] 
         new_vertices = new_mesh.vertices
 
 
