@@ -2,7 +2,7 @@ import os
 import modules.dae as dae
 import modules.rlg as rlg
 import modules.util as util
-import getopt
+import sys
 
 # CONSTANTS
 # DIRECTORY PATHS
@@ -28,9 +28,6 @@ PROMPT_STR_HELP = '''
     Takes all the .rlg files it finds in the "input rlg" folder and for each of them it searches the "input dae" folder for an .dae file that has the same name.
     For each file it finds the .dae of, it reads the vertices of the .dae and overwrites the .rlg's vertices with those.
     (Saves the modified .rlg as a copy in the "output" folder. The original .rlg won't be modified)
-              
-    exit (x)
-    exit
 
     help (h)
     show this message
@@ -51,88 +48,87 @@ PROMPT_STR_HELP = '''
 
 
 def __main__():
-    while True:
-        r = input("\n\n" +PROMPT_STR_BASE_COMMANDS+ "\n\n")
 
-        # Check if response is exit
-        if( r in [ 'exit', 'x' ] ):
+    if sys.argv[ 1 ] in ( 'help', 'h' ):
+        print( PROMPT_STR_HELP )
+        exit()
+
+    # CLI arguments
+    filepath = sys.argv[ 1 ]
+    action = sys.argv[ 2 ]  # enc, dec, enc2, txt
+
+    # check if extension is correct
+    extension = filepath.split( '.' )[ -1 ]
+
+    if extension not in [ 'rlg', 'glg', 'dae' ]:
+        print( 'unsupported file extension ' + extension )
+        exit()
+
+    # path variables
+    rlgpath = ''
+    daepath = ''
+
+    if extension in [ 'rlg', 'glg' ]:
+        rlgpath = filepath
+        daepath = filepath + '.dae'
+    elif extension == 'dae':
+        rlgpath = filepath[ :-4 ]
+        daepath = filepath
+
+
+    # check response and execute if it's a valid command
+    if( action in [ 'txt', 't' ] ):
+        print_misc_data_to_file( rlgpath )
+
+    elif( action in [ 'dec', 'd' ] ):
+        export_rlg_as_dae( rlgpath, daepath )
+
+    elif( action in [ 'enc', 'e', 'enc2', 'e2' ] ):
+        if not os.path.isfile( daepath ):
+            print( daepath + ' not found' )
             exit()
+        auto_export = True if action in [ 'enc2', 'e2' ] else False
+        generate_rlg_from_rlg_and_dae( rlgpath, daepath, auto_export )
 
-        rlg_filenames = util.get_all_filenames_of_specified_extension( DIR_PATH_INPUT_NLG_FORMATS, ".rlg" )
-        dae_filenames = util.get_all_filenames_of_specified_extension( DIR_PATH_INPUT_COMMON_FORMATS, ".dae" )
-
-        # check response and execute if it's a valid command
-        if( r in [ 'txt', 't' ] ):
-            print_misc_data_to_file( rlg_filenames )
-
-        elif( r in [ 'dec', 'd' ] ):
-            export_rlg_as_dae( rlg_filenames )
-
-        elif( r in [ 'enc', 'e'] ):
-            generate_rlg_from_rlg_and_dae( rlg_filenames, dae_filenames )
-
-        elif( r in [ 'enc2', 'e2' ] ):
-            generate_rlg_from_rlg_and_dae( rlg_filenames, dae_filenames, auto_export=True )
+    else:
+        print('invalid command. Use "rlg-vertex-tool help" to see a list of commands')
         
-        elif( r in [ 'help', 'h' ] ):
-            print( PROMPT_STR_HELP + "\n")
-
-        else:
-            print("invalid input")
-            
-        input("Press Enter to continue...")
 
 
-def export_rlg_as_dae( rlg_filenames ):
-    for rlgname in rlg_filenames:
-        rlgpath = DIR_PATH_INPUT_NLG_FORMATS + rlgname
-        daename = rlgname + ".dae"
-        daepath = DIR_PATH_OUTPUT + daename
-        dae.create_dae( rlg.read_rlg( rlgpath ), daepath )
-        print( 'created dae file at {0}'.format( daepath ) )
+def export_rlg_as_dae( rlgpath, daepath ):
+    dae.create_dae( rlg.read_rlg( rlgpath ), daepath )
+    print( 'created dae file at {0}'.format( daepath ) )
 
 
-def generate_rlg_from_rlg_and_dae( rlg_filenames, dae_filenames, auto_export=False ):
-    for rlgname in rlg_filenames:
-        daename = rlgname + ".dae"
+def generate_rlg_from_rlg_and_dae( rlgpath, daepath, auto_export=False ):
+    src_rlg_path = rlgpath
+    dst_rlg_path = DIR_PATH_OUTPUT + rlgpath.split( '/' )[ -1 ]  # tmp
 
-        if daename not in dae_filenames:
-            print( rlgname + ".dae not found" )
-            continue
-        print( "found " + daename )
+    rlg.patch_rlg( src_rlg_path, dst_rlg_path, dae.read_dae( daepath ) )
+    print( 'created rlg file at {0}'.format( dst_rlg_path ) )
 
-        src_rlg_path = DIR_PATH_INPUT_NLG_FORMATS + rlgname
-        dst_rlg_path = DIR_PATH_OUTPUT + rlgname
-        daepath = DIR_PATH_INPUT_COMMON_FORMATS + daename
-
-        rlg.patch_rlg( src_rlg_path, dst_rlg_path, dae.read_dae( daepath ) )
-        print( 'created rlg file at {0}'.format( dst_rlg_path ) )
-
-        # automatic exportation: automatically export the newly generated rlg to dae.
-        # This is QoL for testing.
-        # In the output folder you won't only find your new .rlg, but also the .dae
-        # equivalent of that .rlg, ready to be imported in blender and be checked for
-        # inaccuracies.
-        #
-        if auto_export:
-            auto_export_dae_path = DIR_PATH_OUTPUT + daename
-            dae.create_dae( rlg.read_rlg( dst_rlg_path ), auto_export_dae_path )
-            print( 'created dae file at {0}'.format( auto_export_dae_path ) )
+    # automatic exportation: automatically export the newly generated rlg to dae.
+    # This is QoL for testing.
+    # In the output folder you won't only find your new .rlg, but also the .dae
+    # equivalent of that .rlg, ready to be imported in blender and be checked for
+    # inaccuracies.
+    #
+    #if auto_export:
+    #    auto_export_dae_path = DIR_PATH_OUTPUT + daename
+    #    dae.create_dae( rlg.read_rlg( dst_rlg_path ), auto_export_dae_path )
+    #    print( 'created dae file at {0}'.format( auto_export_dae_path ) )
 
 
 
-def print_misc_data_to_file( rlg_filenames ):
+def print_misc_data_to_file( rlgpath ):
 
-    for rlgname in rlg_filenames:
+    model = rlg.read_rlg( rlgpath )
 
-        rlgpath = DIR_PATH_INPUT_NLG_FORMATS + rlgname
-        model = rlg.read_rlg( rlgpath )
+    txtfile = open( DIR_PATH_OUTPUT + "_miscdata.txt", "w" )
+    txtfile.write( str( model ) )
+    txtfile.close()
 
-        txtfile = open( DIR_PATH_OUTPUT + rlgname + "_miscdata.txt", "w" )
-        txtfile.write( str( model ) )
-        txtfile.close()
-
-        print( rlgname + "_miscdata.txt file successfully created in output folder" )
+    print( "_miscdata.txt file successfully created in output folder" )
 
 
 if __name__ == "__main__":
