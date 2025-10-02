@@ -57,6 +57,10 @@ def __main__():
     filepath = sys.argv[ 1 ]
     action = sys.argv[ 2 ]  # enc, dec, enc2, txt
 
+    # check that file exists
+    if not os.path.isfile( filepath ):
+        print( filepath + ' not found' )
+
     # check if extension is correct
     extension = filepath.split( '.' )[ -1 ]
 
@@ -64,48 +68,71 @@ def __main__():
         print( 'unsupported file extension ' + extension )
         exit()
 
-    # path variables
-    rlgpath = ''
-    daepath = ''
-
-    if extension in [ 'rlg', 'glg' ]:
-        rlgpath = filepath
-        daepath = filepath + '.dae'
-    elif extension == 'dae':
-        rlgpath = filepath[ :-4 ]
-        daepath = filepath
 
 
     # check response and execute if it's a valid command
+    # txt command
     if( action in [ 'txt', 't' ] ):
-        print_misc_data_to_file( rlgpath )
+        if extension in [ 'rlg', 'glg' ]:
+            print_misc_data_to_file( filepath )
+        else:
+            print( 'this command supports rlg/glg file formats only. Given: ' + extension )
 
+    # dec command
     elif( action in [ 'dec', 'd' ] ):
-        export_rlg_as_dae( rlgpath, daepath )
+        if extension == 'rlg':
+            export_rlg_as_dae( filepath )
+        elif extension == 'glg':
+            export_rlg_as_dae( filepath, is_glg=True )
+        else:
+            print( 'this command supports rlg/glg file formats only. Given: ' + extension )
 
+    # enc command
     elif( action in [ 'enc', 'e', 'enc2', 'e2' ] ):
-        if not os.path.isfile( daepath ):
-            print( daepath + ' not found' )
+
+        rlgpath = ''
+        daepath = ''
+
+        # if user gave dae file, find the rlg equivalent (or vice versa)
+        if extension == 'dae':
+            daepath = filepath
+            rlgpath = util.check_rlgpath( filepath )
+            if rlgpath == None:
+                print( rlgpath + ' not found' )
+                exit()
+            extension = rlgpath.split( '.' )[ -1 ]
+        elif extension in [ 'rlg', 'glg' ]:
+            rlgpath = filepath
+            daepath = util.check_daepath( filepath )
+            if daepath == None:
+                print( daepath + ' not found' )
+                exit()
+        else:
+            print( 'this command supports rlg/glg/dae file formats only. Given: ' + extension )
             exit()
+
+        is_glg = True if extension == 'glg' else False
         auto_export = True if action in [ 'enc2', 'e2' ] else False
-        generate_rlg_from_rlg_and_dae( rlgpath, daepath, auto_export )
+
+        generate_rlg_from_rlg_and_dae( rlgpath, daepath, is_glg=is_glg, auto_export=auto_export )
 
     else:
-        print('invalid command. Use "rlg-vertex-tool help" to see a list of commands')
+        print('invalid command. Use "python rlg-vertex-tool help" to see a list of commands')
         
 
 
-def export_rlg_as_dae( rlgpath, daepath ):
+def export_rlg_as_dae( rlgpath, is_glg=False ):
+
+    daepath = rlgpath + '.dae'  # path of new file to create
+
     dae.create_dae( rlg.read_rlg( rlgpath ), daepath )
     print( 'created dae file at {0}'.format( daepath ) )
 
 
-def generate_rlg_from_rlg_and_dae( rlgpath, daepath, auto_export=False ):
-    src_rlg_path = rlgpath
-    dst_rlg_path = DIR_PATH_OUTPUT + rlgpath.split( '/' )[ -1 ]  # tmp
+def generate_rlg_from_rlg_and_dae( rlgpath, daepath, is_glg, auto_export=False ):
 
-    rlg.patch_rlg( src_rlg_path, dst_rlg_path, dae.read_dae( daepath ) )
-    print( 'created rlg file at {0}'.format( dst_rlg_path ) )
+    rlg.patch_rlg( rlgpath, rlgpath, dae.read_dae( daepath ) )
+    print( 'created rlg file at {0}'.format( rlgpath ) )
 
     # automatic exportation: automatically export the newly generated rlg to dae.
     # This is QoL for testing.
@@ -124,11 +151,12 @@ def print_misc_data_to_file( rlgpath ):
 
     model = rlg.read_rlg( rlgpath )
 
-    txtfile = open( DIR_PATH_OUTPUT + "_miscdata.txt", "w" )
+    txtpath = rlgpath + "_miscdata.txt"
+    txtfile = open( txtpath, "w" )
     txtfile.write( str( model ) )
     txtfile.close()
 
-    print( "_miscdata.txt file successfully created in output folder" )
+    print( "_miscdata.txt file successfully created at " + txtpath )
 
 
 if __name__ == "__main__":

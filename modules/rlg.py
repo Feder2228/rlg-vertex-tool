@@ -102,8 +102,9 @@ def patch_rlg( srcpath, dstpath, new_model3d ):
     # get the data of the original rlg file as a model3d object
     old_model3d = read_rlg( srcpath )
 
-    # copy the rlg file and open it
-    shutil.copyfile( srcpath, dstpath )
+    # copy the srcpath rlg file to dstpath, then open it
+    if srcpath != dstpath:
+        shutil.copyfile( srcpath, dstpath )
     rlgfile = open( dstpath, "r+b" )
 
     # get a map of the file's sections

@@ -1,4 +1,5 @@
 import math
+import os
 import struct, re, glob
 
 DEBUG = True
@@ -98,7 +99,17 @@ def get_all_filenames_of_specified_extension( dir_path, extension ):
 
     return filenames
 
+def check_daepath( rlgpath ):
+    daepath = rlgpath + '.dae'
+    if not os.path.isfile( daepath ):
+        return None
+    return daepath
 
+def check_rlgpath( daepath ):
+    rlgpath = daepath[ :-4 ]
+    if not os.path.isfile( rlgpath ):
+        return None
+    return rlgpath
 
 
 
