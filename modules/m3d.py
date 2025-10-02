@@ -75,12 +75,13 @@ class ModelData:
         return STR_MODEL_DATA.format( self.hash_id, self.mesh_count, self.unknown0x8 )
 
 class Mesh:
-    def __init__( self, mesh_data, index_data, vertex_attributes, vertices, faces ):
+    def __init__( self, mesh_data=None, index_data=None, vertex_attributes=None, vertices=None, faces=None, material=None ):
         self.mesh_data = mesh_data
         self.index_data = index_data
         self.vertex_attributes = vertex_attributes
         self.vertices = vertices
         self.faces = faces
+        self.material = material
     def __str__( self ):
         return STR_MESH.format( self.mesh_data, self.index_data, self.vertex_attributes, self.vertices, self.faces )
 
@@ -152,3 +153,12 @@ class Vertex:
 class Face:
     def __init__( self, indices ):
         self.indices = indices
+
+class Material:
+    def __init__( self, tex_hashes=None ):
+        self.tex_hashes = tex_hashes
+
+class Bone:
+    def __init__( self, hash_id, matrix ):
+        self.hash_id = hash_id
+        self.matrix = matrix

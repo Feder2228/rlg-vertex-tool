@@ -467,3 +467,70 @@ def get_matrix( rlgfile, section ):
 
 
     return matrix
+
+
+
+
+def get_material_data( rlgfile, section, mesh_datas, is_glg=False ):
+
+
+    tex_hashes = []
+
+    for mesh_data in mesh_datas:
+
+        rlgfile.seek( section.body_location() + mesh_data.material_offset, 0 )
+
+        while True:
+
+            newhash = int.from_bytes( rlgfile.read(4), 'big' ) 
+
+            if newhash == 0:
+                break
+        
+            tex_hashes.append( newhash )
+
+
+    return m3d.Material( tex_hashes )
+
+    
+
+# Returns a list of integer lists.
+# Each bone list corresponds to a mesh.
+# The ints contained in these lists are the bone hashes
+def get_bone_hashes( rlgfile, sections, is_glg=False ):
+
+    bones = []
+
+    for section in sections:
+
+        rlgfile.seek( section.body_location() )
+
+        bones_of_mesh = []
+
+        for i in range( 0, section.size, 4):
+            bones_of_mesh.append( int.from_bytes( rlgfile.read(4) ) )
+
+        bones.append( bones_of_mesh )
+
+
+
+def get_bone_matrices( rlgfile, section, is_glg=False ):
+    
+    bone_matrices = {}
+
+    bone_count = section.size // 44
+
+    for i in range( bone_count ):
+        bone_matrices.update({
+            int.from_bytes( rlgfile.read(4) ) :
+            [
+            [ util.bytes_to_float( rlgfile.read(4) ), util.bytes_to_float( rlgfile.read(4) ), util.bytes_to_float( rlgfile.read(4) ), util.bytes_to_float( rlgfile.read(4) ) ],
+            [ util.bytes_to_float( rlgfile.read(4) ), util.bytes_to_float( rlgfile.read(4) ), util.bytes_to_float( rlgfile.read(4) ), util.bytes_to_float( rlgfile.read(4) ) ],
+            [ util.bytes_to_float( rlgfile.read(4) ), util.bytes_to_float( rlgfile.read(4) ), util.bytes_to_float( rlgfile.read(4) ), util.bytes_to_float( rlgfile.read(4) ) ],
+            [ util.bytes_to_float( rlgfile.read(4) ), util.bytes_to_float( rlgfile.read(4) ), util.bytes_to_float( rlgfile.read(4) ), util.bytes_to_float( rlgfile.read(4) ) ]
+            ]
+        })
+
+
+    return bone_matrices
+
