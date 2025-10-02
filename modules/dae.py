@@ -25,7 +25,8 @@ REGEX_HASHID = r'(?<=_hashid0x)[0-9a-f]+'
 
 def create_dae( model, filepath ):
 
-    filename_root = filepath.split( "/" )[-1].split(".")[0]
+    filename_root = filepath.split( "\\" )[-1].split(".")[0]
+    print( filepath.split( '\\' ) )
     print( "DEBUG: filename_root= {0} filepath= {1}".format( filename_root, filepath ) )
 
     daefile = open( filepath, "w" ) 

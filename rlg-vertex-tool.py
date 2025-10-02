@@ -73,8 +73,10 @@ def __main__():
     # check response and execute if it's a valid command
     # txt command
     if( action in [ 'txt', 't' ] ):
-        if extension in [ 'rlg', 'glg' ]:
+        if extension == 'rlg':
             print_misc_data_to_file( filepath )
+        elif extension == 'glg':
+            print_misc_data_to_file( filepath, is_glg=True )
         else:
             print( 'this command supports rlg/glg file formats only. Given: ' + extension )
 
@@ -125,31 +127,24 @@ def export_rlg_as_dae( rlgpath, is_glg=False ):
 
     daepath = rlgpath + '.dae'  # path of new file to create
 
-    dae.create_dae( rlg.read_rlg( rlgpath ), daepath )
+    dae.create_dae( rlg.read_rlg( rlgpath, is_glg=is_glg ), daepath )
     print( 'created dae file at {0}'.format( daepath ) )
 
 
-def generate_rlg_from_rlg_and_dae( rlgpath, daepath, is_glg, auto_export=False ):
+def generate_rlg_from_rlg_and_dae( rlgpath, daepath, is_glg=False, auto_export=False ):
 
-    rlg.patch_rlg( rlgpath, rlgpath, dae.read_dae( daepath ) )
+    rlg.patch_rlg( rlgpath, rlgpath, dae.read_dae( daepath ), is_glg=is_glg )
     print( 'created rlg file at {0}'.format( rlgpath ) )
-
-    # automatic exportation: automatically export the newly generated rlg to dae.
-    # This is QoL for testing.
-    # In the output folder you won't only find your new .rlg, but also the .dae
-    # equivalent of that .rlg, ready to be imported in blender and be checked for
-    # inaccuracies.
-    #
-    #if auto_export:
-    #    auto_export_dae_path = DIR_PATH_OUTPUT + daename
-    #    dae.create_dae( rlg.read_rlg( dst_rlg_path ), auto_export_dae_path )
-    #    print( 'created dae file at {0}'.format( auto_export_dae_path ) )
+    
+    if auto_export:
+        dae.create_dae( rlg.read_rlg( rlgpath, is_glg=is_glg ), daepath )
+        print( 'created dae file at {0}'.format( daepath ) )
 
 
 
-def print_misc_data_to_file( rlgpath ):
+def print_misc_data_to_file( rlgpath, is_glg=False ):
 
-    model = rlg.read_rlg( rlgpath )
+    model = rlg.read_rlg( rlgpath, is_glg=is_glg )
 
     txtpath = rlgpath + "_miscdata.txt"
     txtfile = open( txtpath, "w" )

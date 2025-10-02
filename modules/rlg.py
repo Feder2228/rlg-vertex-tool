@@ -39,7 +39,7 @@ VAP_BONE_WEIGHTS_A = 0xb0
 
 
 # Read rlg file. Returns model3d object
-def read_rlg( filepath ):
+def read_rlg( filepath, is_glg=False ):
 
     print( "DEBUG: " + filepath )
 
@@ -97,7 +97,7 @@ def read_rlg( filepath ):
 
 
 # replace part of an rlg file's data with the model3d object data
-def patch_rlg( srcpath, dstpath, new_model3d ):
+def patch_rlg( srcpath, dstpath, new_model3d, is_glg=False ):
 
     # get the data of the original rlg file as a model3d object
     old_model3d = read_rlg( srcpath )
@@ -340,8 +340,8 @@ def get_vaps( rlg, section, mesh_datas ):
             stride = int.from_bytes( rlg.read(1), 'big' )
             unknown_0x6 = int.from_bytes( rlg.read(2), 'big' )  # RLG only
 
-            if util.DEBUG:
-                print( 'iter {0} {1}  offset {2}  type {3}  stride {4}'.format( i,j,offset,type,stride ) )
+            #if util.DEBUG:
+            #    print( 'iter {0} {1}  offset {2}  type {3}  stride {4}'.format( i,j,offset,type,stride ) )
 
             mesh_vaps.append( m3d.VertexAttribute( group=i, offset=offset, type=type, stride=stride, unknown0x6=unknown_0x6 )  )
 
