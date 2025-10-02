@@ -179,6 +179,145 @@ def patch_rlg( srcpath, dstpath, new_model3d, is_glg=False ):
 
 
 
+def patch_rlg_singlemesh( srcpath, dstpath, new_model3d, is_glg=False ):
+
+    # get the data of the original rlg file as a model3d object
+    old_model3d = read_rlg( srcpath )
+
+    # copy the srcpath rlg file to dstpath, then open it
+    if srcpath != dstpath:
+        shutil.copyfile( srcpath, dstpath )
+    rlgfile = open( dstpath, "r+b" )
+
+    # get a map of the file's sections
+    section_map = nlgutil.get_map_of_sections( rlgfile )
+
+    # get vertex section
+    vert_section = section_map[ SECTION_VERTEX_DATA ][ 0 ]
+
+    mesh_data_section = section_map[ SECTION_MESH_DATA ][ 0 ]
+
+    index_data_section = section_map[ SECTION_INDEX_DATA ][ 0 ]
+
+
+    mesh_index_to_edit = 11
+
+    # loop through every mesh of the file's model
+    for i, mesh in enumerate( old_model3d.meshes ):
+
+
+        # take the new vertices
+        new_mesh = new_model3d.meshes[ 0 ] 
+        new_vertices = new_mesh.vertices
+
+
+        # overwrite mesh index count and vertex count
+        if mesh_index_to_edit == i:
+            mesh_data_section.body_location() + i*30
+            rlgfile.read(6)
+            rlgfile.write( len( new_mesh.index_data ).to_bytes( 2, 'big' ) )
+            rlgfile.write( len( new_mesh.vertices ).to_bytes( 2, 'big' ) )
+
+            # overwrite indices
+            rlgfile.seek( index_data_section.body_location() + mesh.mesh_data.index_offset, 0 )
+
+            for index in new_mesh.index_data:
+                rlgfile.write( index.to_bytes( 2, 'big' ) )
+
+
+
+        for j, vap in enumerate( mesh.vertex_attributes ):
+
+            print( 'i {0}'.format( i ) )
+
+            # go to the place indicated by the VAP
+            rlgfile.seek( vert_section.body_location() + vap.offset, 0 )
+
+            if mesh_index_to_edit == i:
+
+                if vap.type in [ VAP_POSITION_A, VAP_POSITION_B ]:
+                    if vap.stride == 12:
+                        for k in range( len( new_mesh.vertices ) ):  
+                            rlgfile.write( util.float_to_bytes4( new_vertices[ k ].position[0] ) )
+                            rlgfile.write( util.float_to_bytes4( new_vertices[ k ].position[1] ) )
+                            rlgfile.write( util.float_to_bytes4( new_vertices[ k ].position[2] ) )
+                    elif vap.stride == 6:
+                        for k in range( len( new_mesh.vertices ) ):  
+                            rlgfile.write( util.float_to_bytes1( new_vertices[ k ].position[0] ) )
+                            rlgfile.write( util.float_to_bytes1( new_vertices[ k ].position[1] ) )
+                            rlgfile.write( util.float_to_bytes1( new_vertices[ k ].position[2] ) )
+                    else:
+                        print( 'huh, pos stride is ' + str( vap.stride ) )  # this shouldn't happen
+                
+
+                elif vap.type in [ VAP_NORMAL_A, VAP_NORMAL_B ]:
+                    if vap.stride == 12:
+                        for k in range( len( new_mesh.vertices ) ):  
+                            rlgfile.write( util.float_to_bytes4( new_vertices[ k ].normal[0] ) )
+                            rlgfile.write( util.float_to_bytes4( new_vertices[ k ].normal[1] ) )
+                            rlgfile.write( util.float_to_bytes4( new_vertices[ k ].normal[2] ) )
+                    elif vap.stride == 3:
+                        for k in range( len( new_mesh.vertices ) ):  
+                            rlgfile.write( util.float_to_bytes2( new_vertices[ k ].normal[0] ) )
+                            rlgfile.write( util.float_to_bytes2( new_vertices[ k ].normal[1] ) )
+                            rlgfile.write( util.float_to_bytes2( new_vertices[ k ].normal[2] ) )
+                    else:
+                        print( 'huh, normal stride is ' + str( vap.stride ) )  # this shouldn't happen
+
+
+                elif vap.type in [ VAP_UV0_A, VAP_UV0_B, VAP_UV0_C ]:
+                    if vap.stride == 4:
+                        for k in range( len( new_mesh.vertices ) ):  
+                            rlgfile.write( util.float_to_bytes2( new_vertices[ k ].uv0[0] ) )
+                            rlgfile.write( util.float_to_bytes2( new_vertices[ k ].uv0[1] ) )
+                    else:
+                        print( 'huh, uv0 stride is ' + str( vap.stride ) )  # this shouldn't happen
+
+            else:
+
+                if vap.type in [ VAP_POSITION_A, VAP_POSITION_B ]:
+                    if vap.stride == 12:
+                        for k in range( mesh.mesh_data.vertex_count ):  
+                            rlgfile.write( util.float_to_bytes4( 0 ) )
+                            rlgfile.write( util.float_to_bytes4( 0 ) )
+                            rlgfile.write( util.float_to_bytes4( 0 ) )
+                    elif vap.stride == 6:
+                        for k in range( mesh.mesh_data.vertex_count ):  
+                            rlgfile.write( util.float_to_bytes1( 0 ) )
+                            rlgfile.write( util.float_to_bytes1( 0 ) )
+                            rlgfile.write( util.float_to_bytes1( 0 ) )
+                    else:
+                        print( 'huh, pos stride is ' + str( vap.stride ) )  # this shouldn't happen
+                
+
+                elif vap.type in [ VAP_NORMAL_A, VAP_NORMAL_B ]:
+                    if vap.stride == 12:
+                        for k in range( mesh.mesh_data.vertex_count ):  
+                            rlgfile.write( util.float_to_bytes4( 0 ) )
+                            rlgfile.write( util.float_to_bytes4( 0 ) )
+                            rlgfile.write( util.float_to_bytes4( 0 ) )
+                    elif vap.stride == 3:
+                        for k in range( mesh.mesh_data.vertex_count ):  
+                            rlgfile.write( util.float_to_bytes2( 0 ) )
+                            rlgfile.write( util.float_to_bytes2( 0 ) )
+                            rlgfile.write( util.float_to_bytes2( 0 ) )
+                    else:
+                        print( 'huh, normal stride is ' + str( vap.stride ) )  # this shouldn't happen
+
+
+                elif vap.type in [ VAP_UV0_A, VAP_UV0_B, VAP_UV0_C ]:
+                    if vap.stride == 4:
+                        for k in range( mesh.mesh_data.vertex_count ):  
+                            rlgfile.write( util.float_to_bytes2( 0 ) )
+                            rlgfile.write( util.float_to_bytes2( 0 ) )
+                    else:
+                        print( 'huh, uv0 stride is ' + str( vap.stride ) )  # this shouldn't happen
+
+
+    rlgfile.close()
+
+
+
 # Function to read the vertices of a rlg file. Returns a list which contains lists of Vertex object.
 # One list per each matrix.
 #

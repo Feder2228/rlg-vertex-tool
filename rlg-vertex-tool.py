@@ -2,6 +2,7 @@ import os
 import modules.dae as dae
 import modules.rlg as rlg
 import modules.util as util
+import modules.m3d as m3d
 import sys
 
 # CONSTANTS
@@ -118,6 +119,9 @@ def __main__():
 
         generate_rlg_from_rlg_and_dae( rlgpath, daepath, is_glg=is_glg, auto_export=auto_export )
 
+    elif action == 'cube':
+        cube( filepath )
+
     else:
         print('invalid command. Use "python rlg-vertex-tool help" to see a list of commands')
         
@@ -140,6 +144,46 @@ def generate_rlg_from_rlg_and_dae( rlgpath, daepath, is_glg=False, auto_export=F
         dae.create_dae( rlg.read_rlg( rlgpath, is_glg=is_glg ), daepath )
         print( 'created dae file at {0}'.format( daepath ) )
 
+
+
+def cube( rlgpath ):
+
+    index_data = [ 0,1,2,3,6,7,4,5,1,0,3,7,4,4,1,1,2,6,5 ]
+
+    vertices = [
+        m3d.Vertex( position=[ 0.0, 0.0, 0.0 ],
+                   normal=[ -0.70710678, -0.70710678, -0.70710678 ],
+                   uv0=[ 0.0, 0.0, 0.0 ] ),
+        m3d.Vertex( position=[ 1.0, 0.0, 0.0 ],
+                   normal=[ 0.70710678, -0.70710678, -0.70710678 ],
+                   uv0=[ 0.0, 0.0, 0.0 ] ),
+        m3d.Vertex( position=[ 1.0, 1.0, 0.0 ],
+                   normal=[ 0.70710678, 0.70710678, -0.70710678 ],
+                   uv0=[ 0.0, 0.0, 0.0 ] ),
+        m3d.Vertex( position=[ 0.0, 1.0, 0.0 ],
+                   normal=[ -0.70710678, 0.70710678, -0.70710678 ],
+                   uv0=[ 0.0, 0.0, 0.0 ] ),
+        m3d.Vertex( position=[ 0.0, 0.0, 1.0 ],
+                   normal=[ -0.70710678, -0.70710678, 0.70710678 ],
+                   uv0=[ 0.0, 0.0, 0.0 ] ),
+        m3d.Vertex( position=[ 1.0, 0.0, 1.0 ],
+                   normal=[ 0.70710678, -0.70710678, 0.70710678 ],
+                   uv0=[ 0.0, 0.0, 0.0 ] ),
+        m3d.Vertex( position=[ 1.0, 1.0, 1.0 ],
+                   normal=[ 0.70710678, 0.70710678, 0.70710678 ],
+                   uv0=[ 0.0, 0.0, 0.0 ] ),
+        m3d.Vertex( position=[ 0.0, 1.0, 1.0 ],
+                   normal=[ -0.70710678, 0.70710678, 0.70710678 ],
+                   uv0=[ 0.0, 0.0, 0.0 ] )
+    ]
+
+    mesh = m3d.Mesh( index_data=index_data, vertices=vertices )
+
+    print( str( mesh ) )
+
+    new_model3d = m3d.Model3d( model_data=None, meshes=[ mesh ] )
+
+    rlg.patch_rlg_singlemesh( rlgpath, rlgpath, new_model3d )
 
 
 def print_misc_data_to_file( rlgpath, is_glg=False ):
