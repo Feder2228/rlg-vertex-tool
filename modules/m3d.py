@@ -66,10 +66,11 @@ class Model3d:
         return None
 
 class ModelData:
-    def __init__( self, hash_id, mesh_count, unknown0x8 ):
+    def __init__( self, hash_id=None, mesh_count=None, unknown0x8=None, unknown0xC=None ):
         self.hash_id = hash_id
         self.mesh_count = mesh_count
         self.unknown0x8 = unknown0x8
+        self.unknown0xC = unknown0xC  # GLG only
         # TODO: GLG - unknown0xC 
     def __str__( self ):
         return STR_MODEL_DATA.format( self.hash_id, self.mesh_count, self.unknown0x8 )
@@ -94,7 +95,8 @@ class Mesh:
 class MeshData:
     def __init__( self, index_offset=0, index_count=0, index_format=0, vertex_count=0, unknown0xA=0,
                   attribute_count=0, unknown0xC=0, material_hash_id=0, unknown0x18=0, unknown0x1C=0, mesh_hash_id=0,
-                  material_offset=0, unknown_0x24=0, unknown_0x28=0, unknown_0x2C=0 ):
+                  material_offset=0, unknown_0x24=0, unknown_0x28=0, unknown_0x2C=0,
+                  glg0x0=0, facetype=0 ):
         self.index_offset = index_offset
         self.index_count = index_count
         self.index_format = index_format
@@ -110,6 +112,10 @@ class MeshData:
         self.unknown_0x24 = unknown_0x24
         self.unknown_0x28 = unknown_0x28
         self.unknown_0x2C = unknown_0x2C
+
+        # GLG ONLY
+        self.glg0x0 = glg0x0
+        self.facetype = facetype # probably byte?
     
     def __str__( self ):
         return STR_MESH_DATA.format( self.index_offset, self.index_format, self.index_count,

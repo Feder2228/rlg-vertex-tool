@@ -182,7 +182,7 @@ def patch_rlg( srcpath, dstpath, new_model3d, is_glg=False ):
 # Function to read the vertices of a rlg file. Returns a list which contains lists of Vertex object.
 # One list per each matrix.
 #
-def get_vertices( rlgfile, section, mesh_datas, vaps ): 
+def get_vertices( rlgfile, section, mesh_datas, vaps, is_glg=False ): 
     
 
     # we need mesh data and vertex attributes in order to find out how many vertices there are
@@ -319,7 +319,7 @@ def get_vertices( rlgfile, section, mesh_datas, vaps ):
 # each list is for a different mesh
 # VAP stands for "vertex attribute pointer"
 #
-def get_vaps( rlg, section, mesh_datas ):  
+def get_vaps( rlg, section, mesh_datas, is_glg=False ):  
     
     # set sup ome variables for the loop
     vaps = []
@@ -356,19 +356,29 @@ def get_vaps( rlg, section, mesh_datas ):
 
 
 
-def get_modeldata( rlgfile, section ):
+def get_modeldata( rlgfile, section, is_glg=False ):
     
     # go to where model data starts
     rlgfile.seek( section.body_location(), 0 )
 
-    model_count = section.size//12
+    model_data_chunk_size = 12
+    if is_glg:
+        model_data_chunk_size = 16  # glg files use 16 bytes per model
+
+    model_count = section.size//model_data_chunk_size
     model_data_instances = []
 
     for i in range( model_count ):
 
-        model_data = m3d.ModelData( int.from_bytes( rlgfile.read(4), "big" ),
-                                           int.from_bytes( rlgfile.read(4), "big" ),
-                                           int.from_bytes( rlgfile.read(4), "big" ) )
+        if is_glg:
+            model_data = m3d.ModelData( mesh_count=int.from_bytes( rlgfile.read(4), "big" ),
+                                        hash_id=int.from_bytes( rlgfile.read(4), "big" ),
+                                        unknown0x8=int.from_bytes( rlgfile.read(4), "big" ), 
+                                        unknown0xC=int.from_bytes( rlgfile.read(4), "big" ) )
+        else:
+            model_data = m3d.ModelData( hash_id=int.from_bytes( rlgfile.read(4), "big" ),
+                                        mesh_count=int.from_bytes( rlgfile.read(4), "big" ),
+                                        unknown0x8=int.from_bytes( rlgfile.read(4), "big" ) )
 
         model_data_instances.append( model_data )
     
@@ -377,37 +387,92 @@ def get_modeldata( rlgfile, section ):
 
 
 
-def get_meshdata( rlg, section ):
+def get_meshdata( rlg, section, is_glg=False, model_data=None ):
     
     # go to where data starts
     rlg.seek( section.body_location() , 0 )
+
+    # check amount of bytes used for each mesh data instance
+    # RLG:
+    mesh_data_chunk_size = 48
+    mesh_count = section.size // mesh_data_chunk_size
+    # GLG:
+    if is_glg:
+        mesh_data_chunk_size = section.size // model_data.mesh_count
+        mesh_count = section.size // mesh_data_chunk_size
+
+
+    
 
     # read data
     mesh_data_instances = []
 
     while rlg.tell() < section.end(): 
-        index_start_offset = int.from_bytes( rlg.read(4), "big" )
-        index_format = int.from_bytes( rlg.read(2), "big" )
-        index_count = int.from_bytes( rlg.read(2), "big" )
-        vertex_count = int.from_bytes( rlg.read(2), "big" )
-        unknown_0x0a = int.from_bytes( rlg.read(1), "big" )
-        vap_count = int.from_bytes( rlg.read(1), "big" )
-        vap_offset = int.from_bytes( rlg.read(4), "big" )  # I'm pretty sure this is the vertex_attribute instance offset
-        material_hash_id = int.from_bytes( rlg.read(4), "big" )
-        mesh_hash_id = int.from_bytes( rlg.read(4), "big" )
-        unknown_0x18 = int.from_bytes( rlg.read(4), "big" )
-        unknown_0x1c = int.from_bytes( rlg.read(4), "big" )
-        material_offset = int.from_bytes( rlg.read(4), "big" )
-        unknown_0x24 = int.from_bytes( rlg.read(4), "big" )
-        unknown_0x28 = int.from_bytes( rlg.read(4), "big" )
-        unknown_0x2c = int.from_bytes( rlg.read(4), "big" )
 
-        # TODO: rename variables in MeshData class
-        new_mesh_data_instance = m3d.MeshData( index_offset=index_start_offset, index_count=index_count, index_format=index_format,
-                                               vertex_count=vertex_count, unknown0xA=unknown_0x0a, attribute_count=vap_count,
-                                               unknown0xC=vap_offset, material_hash_id=material_hash_id, unknown0x18=unknown_0x18, 
-                                               unknown0x1C=unknown_0x1c, mesh_hash_id=mesh_hash_id, material_offset=material_offset,
-                                               unknown_0x24=unknown_0x24, unknown_0x28=unknown_0x28, unknown_0x2C=unknown_0x2c )
+        new_mesh_data_instance = None
+
+    
+        if is_glg:
+
+            mesh_start = rlg.tell()
+
+            rlg.read(2)
+            index_format = int.from_bytes( rlg.read(2), "big" )
+            index_start_offset = int.from_bytes( rlg.read(4), "big" )
+            index_count = int.from_bytes( rlg.read(2), "big" )
+            facetype = int.from_bytes( rlg.read(1), "big" )
+            vap_count = int.from_bytes( rlg.read(1), "big" )
+            rlg.read(4)
+            material_hash_id = int.from_bytes( rlg.read(4), "big" )
+            rlg.read(4)
+            rlg.read(4)
+            rlg.read(4)            
+            material_offset = int.from_bytes( rlg.read(4), "big" )
+            rlg.read(4)
+            texture_hash_id = int.from_bytes( rlg.read(4), "big" )
+            rlg.read(4)
+
+            # TODO: rename variables in MeshData class
+            new_mesh_data_instance = m3d.MeshData( index_offset=index_start_offset, index_count=index_count, index_format=index_format,
+                                                vertex_count=vertex_count, unknown0xA=unknown_0x0a, attribute_count=vap_count,
+                                                unknown0xC=vap_offset, material_hash_id=material_hash_id, unknown0x18=unknown_0x18, 
+                                                unknown0x1C=unknown_0x1c, mesh_hash_id=mesh_hash_id, material_offset=material_offset,
+                                                unknown_0x24=unknown_0x24, unknown_0x28=unknown_0x28, unknown_0x2C=unknown_0x2c, 
+                                                facetype=facetype)
+            
+            # keep moving forward until the end of the chunck
+            # (idk if this is how it works)
+            diff = rlg.tell() - mesh_start
+
+            while diff < mesh_data_chunk_size:
+                rlg.read(1)
+                diff += 1
+            
+
+        
+        else:
+            index_start_offset = int.from_bytes( rlg.read(4), "big" )
+            index_format = int.from_bytes( rlg.read(2), "big" )
+            index_count = int.from_bytes( rlg.read(2), "big" )
+            vertex_count = int.from_bytes( rlg.read(2), "big" )
+            unknown_0x0a = int.from_bytes( rlg.read(1), "big" )
+            vap_count = int.from_bytes( rlg.read(1), "big" )
+            vap_offset = int.from_bytes( rlg.read(4), "big" )  # I'm pretty sure this is the vertex_attribute instance offset
+            material_hash_id = int.from_bytes( rlg.read(4), "big" )
+            mesh_hash_id = int.from_bytes( rlg.read(4), "big" )
+            unknown_0x18 = int.from_bytes( rlg.read(4), "big" )
+            unknown_0x1c = int.from_bytes( rlg.read(4), "big" )
+            material_offset = int.from_bytes( rlg.read(4), "big" )
+            unknown_0x24 = int.from_bytes( rlg.read(4), "big" )
+            unknown_0x28 = int.from_bytes( rlg.read(4), "big" )
+            unknown_0x2c = int.from_bytes( rlg.read(4), "big" )
+
+            # TODO: rename variables in MeshData class
+            new_mesh_data_instance = m3d.MeshData( index_offset=index_start_offset, index_count=index_count, index_format=index_format,
+                                                vertex_count=vertex_count, unknown0xA=unknown_0x0a, attribute_count=vap_count,
+                                                unknown0xC=vap_offset, material_hash_id=material_hash_id, unknown0x18=unknown_0x18, 
+                                                unknown0x1C=unknown_0x1c, mesh_hash_id=mesh_hash_id, material_offset=material_offset,
+                                                unknown_0x24=unknown_0x24, unknown_0x28=unknown_0x28, unknown_0x2C=unknown_0x2c )
 
         mesh_data_instances.append( new_mesh_data_instance )
   
@@ -418,7 +483,7 @@ def get_meshdata( rlg, section ):
 
 # Read data from index section. Return a list containing one list per mesh.
 # Each of these lists contains the indices of the mesh
-def get_indices( rlgfile, section, mesh_data ):
+def get_indices( rlgfile, section, mesh_data, is_glg=False ):
 
     # go to where data starts
     rlgfile.seek( section.body_location(), 0 )
