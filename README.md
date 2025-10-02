@@ -4,9 +4,8 @@ You can extract part of the data of an .rlg file into a .dae, but for now it's j
 You can edit the .dae you extracted to make a **3d model edit**, but **only vertex positions**, **uv mapping** and (supposedly) **normals** will be read by the tool. Anything else is ignored for now.
 
 ## How to make your 3d model mod with this tool:
-1. Put your .rlg file in the "**input rlg**" folder
-2. Run the script and use the **dec** command to generate a .dae file
-3. In the "**output**" folder you'll find the newly created .dae file, import it in a 3D model editor (such as blender). Here you can move the vertices around, but **DO NOT** add or delete any.
-4. Once you're done with the edit, export the .dae file into the "**input dae**" folder (make sure to name it the same way as the file that was outputed by the script)
-5. Run the script and use the **enc** command to generate a new .rlg (the original .rlg still needs to be in the "**input rlg**" folder). The script will replace the original rlg's vertices with the ones that are found in the .dae file
-6. If everything went right, you'll find your new rlg in the "**output**" folder. Enjoy!
+1. run the command "python rlg-vertex-tool (rlgfile) dec", you'll find a new .dae file in the directory of the rlg file.
+2. import that file into blender, there you can move vertices and uv positions, but you cannot add vertices/faces (for now)
+3. export the .dae file and overwrite the old one (it must have the same name and it must be in the same directory as the rlg file)
+4. run the command "python rlg-vertex-tool (rlgfile) enc" and the rlg will get patched with the data found in the .dae file
+5. enjoy!
