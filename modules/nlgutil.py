@@ -35,8 +35,8 @@ def get_map_of_sections( file ):
     while file.tell() < filesize:
 
 
-        if util.DEBUG:
-            print( 'found a section at ' + str( file.tell() ) )
+        #if util.DEBUG:
+        #    print( 'found a section at ' + str( file.tell() ) )
 
 
         # get header data

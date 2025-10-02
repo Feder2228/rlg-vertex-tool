@@ -129,6 +129,8 @@ def patch_rlg( srcpath, dstpath, new_model3d, is_glg=False ):
 
         for j, vap in enumerate( mesh.vertex_attributes ):
 
+            print( 'i {0}'.format( i ) )
+
             # go to the place indicated by the VAP
             rlgfile.seek( vert_section.body_location() + vap.offset, 0 )
 
