@@ -22,7 +22,7 @@ class Section:
 # takes a file object as parameter and returns a dict that maps each found
 # section identifier to a list of Section objects.
 #
-def get_map_of_sections( file ):
+def get_map_of_sections( file, is_glg=False ):
 
     # check size 
     file.seek( 0, 2 )
@@ -80,9 +80,10 @@ def get_map_of_sections( file ):
         if not is_section_container:
             file.seek( section_size, 1 )
 
-        # align by 4
-        while not file.tell() % 4 == 0:
-            file.seek( 1, 1 )  # move forward by 1 until you're aligned
+        # align by 4 (RLG only)
+        if not is_glg:
+            while not file.tell() % 4 == 0:
+                file.seek( 1, 1 )  # move forward by 1 until you're aligned
 
         
     return section_map

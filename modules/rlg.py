@@ -38,10 +38,35 @@ VAP_BONE_INDICES_A = 0xd4
 VAP_BONE_WEIGHTS_A = 0xb0
 
 
+# for testing
+def read_glg_test( filepath ):
+
+    rlgfile = open( filepath, "rb" )
+
+    section_map = nlgutil.get_map_of_sections( rlgfile, is_glg=True )
+
+    # Read general model data (data that is not associated with a mesh in particular)
+    matrix = get_matrix( rlgfile, section_map[ SECTION_MATRIX_DATA ][ 0 ] )
+    model_data = get_modeldata( rlgfile, section_map[ SECTION_MODEL_DATA ][ 0 ] )
+    model3d = m3d.Model3d( matrix, model_data, [] )
+
+    mesh_datas = get_meshdata( rlgfile, section_map[ SECTION_MESH_DATA ][ 0 ] )
+
+    txtfile = open( filepath+'.txt', "w" )
+    txtfile.write( str( matrix ) + '\n\n' )
+    txtfile.write( str( model_data ) + '\n\n' )
+    
+    for i, mesh_data in enumerate( mesh_datas ):
+        txtfile.write( str(i) + '\n')
+        txtfile.write( mesh_data.glg_data() )
+        txtfile.write( '\n\n' )
+
+
 # Read rlg file. Returns model3d object
 def read_rlg( filepath, is_glg=False ):
 
-    print( "DEBUG: " + filepath )
+    if util.DEBUG:
+        print( "DEBUG: " + filepath )
 
     rlgfile = open( filepath, "rb" )
 
@@ -399,7 +424,7 @@ def get_meshdata( rlg, section, is_glg=False, model_data=None ):
     # GLG:
     if is_glg:
         mesh_data_chunk_size = section.size // model_data.mesh_count
-        mesh_count = section.size // mesh_data_chunk_size
+        mesh_count = model_data.mesh_count
 
 
     
@@ -416,29 +441,27 @@ def get_meshdata( rlg, section, is_glg=False, model_data=None ):
 
             mesh_start = rlg.tell()
 
+            print( str( 'mesh at: ' + mesh_start ) )
+
             rlg.read(2)
             index_format = int.from_bytes( rlg.read(2), "big" )
             index_start_offset = int.from_bytes( rlg.read(4), "big" )
             index_count = int.from_bytes( rlg.read(2), "big" )
             facetype = int.from_bytes( rlg.read(1), "big" )
             vap_count = int.from_bytes( rlg.read(1), "big" )
-            rlg.read(4)
-            material_hash_id = int.from_bytes( rlg.read(4), "big" )
-            rlg.read(4)
-            rlg.read(4)
-            rlg.read(4)            
-            material_offset = int.from_bytes( rlg.read(4), "big" )
-            rlg.read(4)
-            texture_hash_id = int.from_bytes( rlg.read(4), "big" )
-            rlg.read(4)
+            #rlg.read(4)
+            #material_hash_id = int.from_bytes( rlg.read(4), "big" )
+            #rlg.read(4)
+            #rlg.read(4)
+            #rlg.read(4)            
+            #material_offset = int.from_bytes( rlg.read(4), "big" )
+            #rlg.read(4)
+            #texture_hash_id = int.from_bytes( rlg.read(4), "big" )
+            #rlg.read(4)
 
             # TODO: rename variables in MeshData class
             new_mesh_data_instance = m3d.MeshData( index_offset=index_start_offset, index_count=index_count, index_format=index_format,
-                                                vertex_count=vertex_count, unknown0xA=unknown_0x0a, attribute_count=vap_count,
-                                                unknown0xC=vap_offset, material_hash_id=material_hash_id, unknown0x18=unknown_0x18, 
-                                                unknown0x1C=unknown_0x1c, mesh_hash_id=mesh_hash_id, material_offset=material_offset,
-                                                unknown_0x24=unknown_0x24, unknown_0x28=unknown_0x28, unknown_0x2C=unknown_0x2c, 
-                                                facetype=facetype)
+                                                vertex_count=vertex_count, unknown0xA=unknown_0x0a, attribute_count=vap_count, facetype=facetype)
             
             # keep moving forward until the end of the chunck
             # (idk if this is how it works)

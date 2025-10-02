@@ -40,6 +40,14 @@ STR_MESH_DATA = '''0x00 index_offset: {0}
 0x2C unknown: {14}
 '''
 
+STR_MESH_DATA_GLG = '''0x00 {0}
+0x02 index_format {1}
+0x04 index_start {2}
+0x08 index_count {3}
+0x0A face_type {4}
+0x0B? vap_count {5}
+'''
+
 
 # a data structure that defines a 3d model and aims to mimic the rlg/glg format
 class Model3d:
@@ -122,6 +130,9 @@ class MeshData:
                   self.vertex_count, self.unknown0xA, self.attribute_count, self.unknown0xC,
                   self.material_hash_id, self.mesh_hash_id, self.unknown0x18, self.unknown0x1C,
                   self.material_offset, self.unknown_0x24, self.unknown_0x28, self.unknown_0x2C )
+
+    def glg_data( self ):
+        return STR_MESH_DATA_GLG.format( self.glg0x0, self.index_format, self.index_offset, self.index_count, self.facetype, self.attribute_count )
 
 
 class VertexAttribute:

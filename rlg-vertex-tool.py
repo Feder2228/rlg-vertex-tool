@@ -118,6 +118,10 @@ def __main__():
 
         generate_rlg_from_rlg_and_dae( rlgpath, daepath, is_glg=is_glg, auto_export=auto_export )
 
+    # palle
+    elif action == 'glgtest':
+        rlg.read_glg_test( filepath )
+
     else:
         print('invalid command. Use "python rlg-vertex-tool help" to see a list of commands')
         
