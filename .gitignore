@@ -1,0 +1,16 @@
+*.pyc
+*.dae
+*.rlg
+*.glg
+*.rlt
+*.glt
+hashid.bin
+hashnames.json
+*.shier
+*.cph
+*.sanim
+*.zlib
+*.trg
+*.bun
+*.nis
+*.cam

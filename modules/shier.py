@@ -1,1 +1,0 @@
-# functions for decoding/encoding shier files

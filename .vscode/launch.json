@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        
+        {
+            "name": "dec",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.rlgtool.cli",
+            "args": [
+                "dec",
+                "./tests/files_for_testing/original/mario/mario.rlg"
+            ]
+        },
+        {
+            "name": "patch",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.rlgtool.cli",
+            "args": [
+                "patch",
+                "./tests/files_for_testing/original/mario/mario.rlg",
+                "./tests/files_for_testing/tmp/mario.rlg",
+                "./tests/files_for_testing/correct_dae/mario.rlg.dae",
+            ]
+        }
+    ]
+}
