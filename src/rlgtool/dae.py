@@ -325,11 +325,11 @@ def write_section_library_geometries(root : XmlNode, rlgroot : RlgRoot, filename
                                        field, model_hash=rlgmodel.hash_id)
 
                 if j in [0,1]:
-                    float_count = rlgmesh.vertex_count * 3  # TODO: strides won't always work like this. Fix in the future
+                    float_count = len(rlgmesh.vertices) * 3
                 elif j == 2:
-                    float_count = rlgmesh.vertex_count * 4
+                    float_count = len(rlgmesh.vertices) * 4
                 else:
-                    float_count = rlgmesh.vertex_count * 2
+                    float_count = len(rlgmesh.vertices) * 2
 
                 float_array = source.append_child(XmlNode('float_array', attributes={'id' : id, 'count' : float_count}, content=''))
 
@@ -349,7 +349,7 @@ def write_section_library_geometries(root : XmlNode, rlgroot : RlgRoot, filename
                 # open accessor tag
                 source_attribute = "#" + get_mesh_field_array_id(filename_root, rlgmesh.hash_id, 
                                        field, model_hash=rlgmodel.hash_id)
-                count = rlgmesh.vertex_count
+                count = len(rlgmesh.vertices)
                 stride = [3, 3, 4, 2][j]
                 accessor = technique_common.append_child(XmlNode('accessor', attributes={'source' : source_attribute, 'count' : count, 'stride' : stride}))
 

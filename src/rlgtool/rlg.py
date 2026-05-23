@@ -138,6 +138,7 @@ def read_vertices(rlgfile, section : nlgutil.Section, root : RlgRoot, is_glg=Fal
                 vap0 = mesh.vaps[0]
                 vap1 = mesh.vaps[1]
                 vertex_count = (vap1.offset - vap0.offset) // vap0.stride
+                print(vertex_count)
             else:
                 vertex_count = mesh.vertex_count
             for k in range(vertex_count):
@@ -233,20 +234,21 @@ def read_vaps(rlgfile, section : nlgutil.Section, root : RlgRoot, is_glg=False):
 
 
 
-def from_glg_vap_type(type : int) -> RlgVAPType:
+def from_glg_vap_type(type : bytes) -> RlgVAPType:
     """Convert glg vap type to rlg vap type
 
-    Args: type
+    Args: 
+        type: bytes length 1
     """
-    if type == 0:
+    if type == b'\x00':
         return RlgVAPType.POSITION
-    if type == 1:
+    if type == b'\x01':
         return RlgVAPType.NORMAL
-    if type == 2:
+    if type == b'\x02':
         return RlgVAPType.COLOR
-    if type == 3:
+    if type == b'\x03':
         return RlgVAPType.UV
-    if type == 4:
+    if type == b'\x04':
         return RlgVAPType.UV  # I don't know what this is
 
 
