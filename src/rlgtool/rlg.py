@@ -52,7 +52,7 @@ def read_rlg(rlgfile, root_section, shierpath=None, is_glg=False) -> RlgRoot:
     read_models(rlgfile, root_section.get_children_of_type(SECTION_MODEL_DATA)[0], root, is_glg=is_glg)
     read_meshes(rlgfile, root_section.get_children_of_type(SECTION_MESH_DATA)[0], root, is_glg=is_glg)
 
-    if has_bones:
+    if has_bones and not is_glg:  # TODO: temp
         if shierpath == None:
             read_bone_matrices(rlgfile, skeleton_container_section.get_children_of_type(SECTION_BONE_MATRICES)[0], root)
         else:
@@ -292,6 +292,9 @@ def read_meshes(rlgfile, section : nlgutil.Section, root : RlgRoot, is_glg=False
                     material_hash_id=material_hash_id, 
                     hash_id=i,
                     unknown_data=unknown_data)
+                
+                # placeholder material
+                mesh.material = RlgMaterial(texture_hashes=[0x12345678])
 
             else:
                 unknown_data = b''
