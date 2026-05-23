@@ -161,6 +161,8 @@ def read_vertices(rlgfile, section : nlgutil.Section, root : RlgRoot):
                                                 int.from_bytes(rlgfile.read(1), 'big', signed=True) / 255]
                         else:
                             print('there exist normals with stride {0}'.format(vap.stride))
+                    elif vap.type == RlgVAPType.COLOR:
+                        vertex.color = int.from_bytes(rlgfile.read(4), 'big')
                     elif vap.type == RlgVAPType.UV:
                         new_uv = [int.from_bytes(rlgfile.read(2), 'big', signed=True) / 1024,
                                     int.from_bytes(rlgfile.read(2), 'big', signed=True) / 1024]  # TODO: util should already have a function that does this
@@ -555,6 +557,8 @@ def write_vertices(rlgfile, section : nlgutil.Section, new_root : RlgRoot, old_r
                             rlgfile.write(util.float_to_bytes1(new_mesh.vertices[k].normal[2]))
                         else:
                             raise Exception('error, unexpected stride for normal: {0}'.format(vap.stride))
+                    elif vap.type == RlgVAPType.COLOR:
+                        rlgfile.write(old_mesh.vertices[k].color.to_bytes(4, 'big'))
                     elif vap.type == RlgVAPType.UV:
                         if uv_occurrence == 0:
                             rlgfile.write(util.float_to_bytes2(new_mesh.vertices[k].uvs[uv_occurrence][0]))

@@ -268,7 +268,7 @@ class RlgVAPType(Enum):
     """
     POSITION = 1
     NORMAL = 2  # can have stride 12 or 3
-    UNK3 = 3  # unknown, usually stride of 4. RGBA vertex colors, probably.
+    COLOR = 3
     UV = 4
     BONE_WEIGHTS = 5
     BONE_INDICES = 7
@@ -297,7 +297,6 @@ class RlgVertexAttributePointer:
 
 
 
-
 class RlgVertex:
     """Represent a vertex of a RlgMesh object 
 
@@ -305,18 +304,20 @@ class RlgVertex:
         position: list of 3 floats, position of the vertex
         normal: list of 3 floats, normal of the vertex, used by the
             associated faces to determine on which side the face normal is
+        color: RGBA color. 32-bit integer of the form 0xRRGGBBAA
         uvs: list where each element is a list of 2 floats. Element i is
             a list of length 2 containing the UV coordinates of texture i
         bone_ids: list of 4 ints. IDs of bones
         bone_weights: list of 4 ints. The weight of each of the 4 bones.
     """
-    def __init__(self, position=None, normal=None, uvs=None, bone_ids=None,
-                  bone_weights=None):
+    def __init__(self, position=None, normal=None, color=0xFFFFFFFF,
+                 uvs=None, bone_ids=None, bone_weights=None):
         self.position = position
         self.normal = normal
         if self.normal == None:
             self.normal = list()
             self.normal += [1.0, 0.0, 0.0]
+        self.color = color
         self.uvs = uvs
         if self.uvs == None:
             self.uvs = list()
