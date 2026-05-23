@@ -292,7 +292,7 @@ def read_matrices(rlgfile, section : nlgutil.Section, root : RlgRoot):
     """
     rlgfile.seek(section.body_location(), 0)
     MATRIX_RECORD_SIZE = 0x40
-    matrix_count = section.size // MATERIAL_RECORD_SIZE
+    matrix_count = section.size // MATRIX_RECORD_SIZE
     matrices = []
     for i in range(matrix_count):
         matrix = []
