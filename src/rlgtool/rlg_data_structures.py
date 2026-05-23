@@ -21,6 +21,21 @@ class RlgRoot:
         if self.bones == []:
             self.bones = list()
         self.root_bone = None
+
+    def get_model_by_id(self, hash_id=None):
+        """Find model of the corresponding hash_id
+
+        If no model matches hash_id, return None
+
+        Args:
+            hash_id: hash id of the model to search for
+        Returns:
+            RlgModel object, or None if cannot find a matching hash_id
+        """
+        for model in self.models:
+            if model.hash_id == hash_id:
+                return model
+        return None
     
     def get_bone_by_id(self, hash_id=None):
         for bone in self.bones:

@@ -6,6 +6,7 @@ from . import nlgutil
 
 
 REGEX_HASHID = r'(?<=_hashid0x)[0-9a-f]+'
+REGEX_MODEL = r'(?<=_model0x)[0-9a-f]+'
 REGEX_BONE = r'(?<=bone_)[0-9a-f]+'
 
 
@@ -117,68 +118,68 @@ def get_sampler_id(texture_hash):
 
 
 
-def get_mesh_id(filename_root, mesh_hash):
+def get_mesh_id(filename_root, mesh_hash, model_hash=0):
     """get mesh id
 
     Args:
         texture_hash: hash referencing the texture in the game files
     """ 
-    return filename_root + "_hashid" + hex(mesh_hash) + '-mesh'
+    return filename_root + "_model" + hex(model_hash) + "_hashid" + hex(mesh_hash) + '-mesh'
 
 
 
 
-def get_mesh_field_id(filename_root, mesh_hash, field : str):
+def get_mesh_field_id(filename_root, mesh_hash, field : str, model_hash=0):
     """get mesh id
 
     Args:
         texture_hash: hash referencing the texture in the game files
     """ 
-    return get_mesh_id(filename_root, mesh_hash) + '-' + field
+    return get_mesh_id(filename_root, mesh_hash, model_hash=model_hash) + '-' + field
 
 
 
 
-def get_mesh_field_array_id(filename_root, mesh_hash, field : str):
+def get_mesh_field_array_id(filename_root, mesh_hash, field : str, model_hash=0):
     """get mesh id
 
     Args:
         texture_hash: hash referencing the texture in the game files
     """ 
-    return get_mesh_field_id(filename_root, mesh_hash, field) + '-array'
+    return get_mesh_field_id(filename_root, mesh_hash, field, model_hash=model_hash) + '-array'
 
 
 
 
-def get_armature_id(filename_root, mesh_hash):
+def get_armature_id(filename_root, mesh_hash, model_hash):
     """get mesh id
 
     Args:
         texture_hash: hash referencing the texture in the game files
     """ 
-    return "Armature_" + get_mesh_id(filename_root, mesh_hash) + '-skin'
+    return "Armature_" + get_mesh_id(filename_root, mesh_hash, model_hash) + '-skin'
 
 
 
 
-def get_armature_field_id(filename_root, mesh_hash, field : str):
+def get_armature_field_id(filename_root, mesh_hash, field : str, model_hash):
     """get armature id
 
     Args:
         texture_hash: hash referencing the texture in the game files
     """ 
-    return get_armature_id(filename_root, mesh_hash) + '-' + field
+    return get_armature_id(filename_root, mesh_hash, model_hash) + '-' + field
 
 
 
 
-def get_armature_field_array_id(filename_root, mesh_hash, field : str):
+def get_armature_field_array_id(filename_root, mesh_hash, field : str, model_hash):
     """get armature id
 
     Args:
         texture_hash: hash referencing the texture in the game files
     """ 
-    return get_armature_field_id(filename_root, mesh_hash, field) + '-array'
+    return get_armature_field_id(filename_root, mesh_hash, field, model_hash) + '-array'
 
 
 
@@ -301,96 +302,99 @@ def write_section_library_geometries(root : XmlNode, rlgroot : RlgRoot, filename
         root: XmlNode, root of the dae file
     """
     library_geometries = root.append_child(XmlNode('library_geometries'))
+    for rlgmodel in rlgroot.models:
+        for rlgmesh in rlgmodel.meshes:
+            # open geometry tag
+            # the geometry will have an id attribute that contains the "mesh_hash_id" value
+            # this will be helpful to keep track of which mesh is which
+            id = get_mesh_id(filename_root, rlgmesh.hash_id, model_hash=rlgmodel.hash_id)
+            geometry = library_geometries.append_child(XmlNode('geometry', attributes={'id' : id, 'name' : id}))
+            
+            # open mesh tag
+            mesh = geometry.append_child(XmlNode('mesh'))
 
-    for i, rlgmesh in enumerate(rlgroot.models[0].meshes):
-        # open geometry tag
-        # the geometry will have an id attribute that contains the "mesh_hash_id" value
-        # this will be helpful to keep track of which mesh is which
-        id = get_mesh_id(filename_root, rlgmesh.hash_id)
-        geometry = library_geometries.append_child(XmlNode('geometry', attributes={'id' : id, 'name' : id}))
-        
-        # open mesh tag
-        mesh = geometry.append_child(XmlNode('mesh'))
+            # iteration 0 is for positions, 1 is for normals, 2 is for vertex colors, 3 is for uv coords
+            for j, field in enumerate(['position', 'normal', 'color', 'texcoord' ]):
+                # open source tag
+                id = get_mesh_field_id(filename_root, rlgmesh.hash_id, 
+                                       field, model_hash=rlgmodel.hash_id)
+                source = mesh.append_child(XmlNode('source', attributes={'id' : id}))
 
-        # iteration 0 is for positions, 1 is for normals, 2 is for vertex colors, 3 is for uv coords
-        for j, field in enumerate(['position', 'normal', 'color', 'texcoord' ]):
-            # open source tag
-            id = get_mesh_field_id(filename_root, rlgmesh.hash_id, field)
-            source = mesh.append_child(XmlNode('source', attributes={'id' : id}))
+                # open and close float array tag
+                id = get_mesh_field_array_id(filename_root, rlgmesh.hash_id, 
+                                       field, model_hash=rlgmodel.hash_id)
 
-            # open and close float array tag
-            id = get_mesh_field_array_id(filename_root, rlgmesh.hash_id, field)
-
-            if j in [0,1]:
-                float_count = rlgmesh.vertex_count * 3  # TODO: strides won't always work like this. Fix in the future
-            elif j == 2:
-                float_count = rlgmesh.vertex_count * 4
-            else:
-                float_count = rlgmesh.vertex_count * 2
-
-            float_array = source.append_child(XmlNode('float_array', attributes={'id' : id, 'count' : float_count}, content=''))
-
-            for k, rlgvertex in enumerate(rlgmesh.vertices):
-                if j == 0:
-                    float_array.content += '{0} {1} {2} '.format(rlgvertex.position[0], rlgvertex.position[1], rlgvertex.position[2])
-                elif j == 1:
-                    float_array.content += '{0} {1} {2} '.format(rlgvertex.normal[0], rlgvertex.normal[1], rlgvertex.normal[2])
+                if j in [0,1]:
+                    float_count = rlgmesh.vertex_count * 3  # TODO: strides won't always work like this. Fix in the future
                 elif j == 2:
-                    float_array.content += '1 1 1 1 '
+                    float_count = rlgmesh.vertex_count * 4
                 else:
-                    float_array.content += '{0} {1} '.format(rlgvertex.uvs[0][0], 1 - rlgvertex.uvs[0][1])  # the v coordinate is flipped
+                    float_count = rlgmesh.vertex_count * 2
 
-            # open technique_common tag
-            technique_common = source.append_child(XmlNode('technique_common'))
+                float_array = source.append_child(XmlNode('float_array', attributes={'id' : id, 'count' : float_count}, content=''))
 
-            # open accessor tag
-            source_attribute = "#" + get_mesh_field_array_id(filename_root, rlgmesh.hash_id, field)
-            count = rlgmesh.vertex_count
-            stride = [3, 3, 4, 2][j]
-            accessor = technique_common.append_child(XmlNode('accessor', attributes={'source' : source_attribute, 'count' : count, 'stride' : stride}))
+                for k, rlgvertex in enumerate(rlgmesh.vertices):
+                    if j == 0:
+                        float_array.content += '{0} {1} {2} '.format(rlgvertex.position[0], rlgvertex.position[1], rlgvertex.position[2])
+                    elif j == 1:
+                        float_array.content += '{0} {1} {2} '.format(rlgvertex.normal[0], rlgvertex.normal[1], rlgvertex.normal[2])
+                    elif j == 2:
+                        float_array.content += '1 1 1 1 '
+                    else:
+                        float_array.content += '{0} {1} '.format(rlgvertex.uvs[0][0], 1 - rlgvertex.uvs[0][1])  # the v coordinate is flipped
 
-            # param tag
-            if j in [0,1]:
-                accessor.append_child(XmlNode('param', attributes={'name' : 'X', 'type' : 'float'}, has_body=False))
-                accessor.append_child(XmlNode('param', attributes={'name' : 'Y', 'type' : 'float'}, has_body=False))
-                accessor.append_child(XmlNode('param', attributes={'name' : 'Z', 'type' : 'float'}, has_body=False))
-            elif j == 2:
-                accessor.append_child(XmlNode('param', attributes={'name' : 'R', 'type' : 'float'}, has_body=False))
-                accessor.append_child(XmlNode('param', attributes={'name' : 'G', 'type' : 'float'}, has_body=False))
-                accessor.append_child(XmlNode('param', attributes={'name' : 'B', 'type' : 'float'}, has_body=False))
-                accessor.append_child(XmlNode('param', attributes={'name' : 'A', 'type' : 'float'}, has_body=False))
-            else:
-                accessor.append_child(XmlNode('param', attributes={'name' : 'S', 'type' : 'float'}, has_body=False))
-                accessor.append_child(XmlNode('param', attributes={'name' : 'T', 'type' : 'float'}, has_body=False))
+                # open technique_common tag
+                technique_common = source.append_child(XmlNode('technique_common'))
 
-        # vertices
-        id = get_mesh_field_id(filename_root, rlgmesh.hash_id, 'vertex')
-        vertices = mesh.append_child(XmlNode('vertices', attributes={'id' : id}))
-        # vertices -> input
-        source = '#' + get_mesh_field_id(filename_root, rlgmesh.hash_id, 'position')
-        vertices.append_child(XmlNode('input', attributes={'semantic' : 'POSITION', 'source' : source}, has_body=False))
+                # open accessor tag
+                source_attribute = "#" + get_mesh_field_array_id(filename_root, rlgmesh.hash_id, 
+                                       field, model_hash=rlgmodel.hash_id)
+                count = rlgmesh.vertex_count
+                stride = [3, 3, 4, 2][j]
+                accessor = technique_common.append_child(XmlNode('accessor', attributes={'source' : source_attribute, 'count' : count, 'stride' : stride}))
 
-        # triangles
-        triangles_count = len(rlgmesh.faces)
-        triangles = mesh.append_child(XmlNode('triangles', attributes={'count' : triangles_count}))
-        # triangles -> input
-        source = '#' + get_mesh_field_id(filename_root, rlgmesh.hash_id, 'vertex')
-        triangles.append_child(XmlNode('input', attributes={'semantic' : 'VERTEX', 'source' : source, 'offset' : '0'}, has_body=False))
-        source = '#' + get_mesh_field_id(filename_root, rlgmesh.hash_id, 'normal')
-        triangles.append_child(XmlNode('input', attributes={'semantic' : 'NORMAL', 'source' : source, 'offset' : '1'}, has_body=False))
-        source = '#' + get_mesh_field_id(filename_root, rlgmesh.hash_id, 'color')
-        triangles.append_child(XmlNode('input', attributes={'semantic' : 'COLOR', 'source' : source, 'offset' : '2', 'set' : '0'}, has_body=False))
-        source = '#' + get_mesh_field_id(filename_root, rlgmesh.hash_id, 'texcoord')
-        triangles.append_child(XmlNode('input', attributes={'semantic' : 'TEXCOORD', 'source' : source, 'offset' : '3', 'set' : '0'}, has_body=False))
-        # triangles -> p (array of indices)
-        p = triangles.append_child(XmlNode('p', content=''))
-        for tri in rlgmesh.faces:
-            util.adjust_normals_for_dae(tri, rlgmesh)
-            for index in tri.indices:
-                p.content += str(index) + ' '  # vertex position index
-                p.content += str(index) + ' '  # vertex normal index
-                p.content += str(index) + ' '  # vertex color index
-                p.content += str(index) + ' '  # vertex uv coord index
+                # param tag
+                if j in [0,1]:
+                    accessor.append_child(XmlNode('param', attributes={'name' : 'X', 'type' : 'float'}, has_body=False))
+                    accessor.append_child(XmlNode('param', attributes={'name' : 'Y', 'type' : 'float'}, has_body=False))
+                    accessor.append_child(XmlNode('param', attributes={'name' : 'Z', 'type' : 'float'}, has_body=False))
+                elif j == 2:
+                    accessor.append_child(XmlNode('param', attributes={'name' : 'R', 'type' : 'float'}, has_body=False))
+                    accessor.append_child(XmlNode('param', attributes={'name' : 'G', 'type' : 'float'}, has_body=False))
+                    accessor.append_child(XmlNode('param', attributes={'name' : 'B', 'type' : 'float'}, has_body=False))
+                    accessor.append_child(XmlNode('param', attributes={'name' : 'A', 'type' : 'float'}, has_body=False))
+                else:
+                    accessor.append_child(XmlNode('param', attributes={'name' : 'S', 'type' : 'float'}, has_body=False))
+                    accessor.append_child(XmlNode('param', attributes={'name' : 'T', 'type' : 'float'}, has_body=False))
+
+            # vertices
+            id = get_mesh_field_id(filename_root, rlgmesh.hash_id, 'vertex', model_hash=rlgmodel.hash_id)
+            vertices = mesh.append_child(XmlNode('vertices', attributes={'id' : id}))
+            # vertices -> input
+            source = '#' + get_mesh_field_id(filename_root, rlgmesh.hash_id, 'position', model_hash=rlgmodel.hash_id)
+            vertices.append_child(XmlNode('input', attributes={'semantic' : 'POSITION', 'source' : source}, has_body=False))
+
+            # triangles
+            triangles_count = len(rlgmesh.faces)
+            triangles = mesh.append_child(XmlNode('triangles', attributes={'count' : triangles_count}))
+            # triangles -> input
+            source = '#' + get_mesh_field_id(filename_root, rlgmesh.hash_id, 'vertex', model_hash=rlgmodel.hash_id)
+            triangles.append_child(XmlNode('input', attributes={'semantic' : 'VERTEX', 'source' : source, 'offset' : '0'}, has_body=False))
+            source = '#' + get_mesh_field_id(filename_root, rlgmesh.hash_id, 'normal', model_hash=rlgmodel.hash_id)
+            triangles.append_child(XmlNode('input', attributes={'semantic' : 'NORMAL', 'source' : source, 'offset' : '1'}, has_body=False))
+            source = '#' + get_mesh_field_id(filename_root, rlgmesh.hash_id, 'color', model_hash=rlgmodel.hash_id)
+            triangles.append_child(XmlNode('input', attributes={'semantic' : 'COLOR', 'source' : source, 'offset' : '2', 'set' : '0'}, has_body=False))
+            source = '#' + get_mesh_field_id(filename_root, rlgmesh.hash_id, 'texcoord', model_hash=rlgmodel.hash_id)
+            triangles.append_child(XmlNode('input', attributes={'semantic' : 'TEXCOORD', 'source' : source, 'offset' : '3', 'set' : '0'}, has_body=False))
+            # triangles -> p (array of indices)
+            p = triangles.append_child(XmlNode('p', content=''))
+            for tri in rlgmesh.faces:
+                util.adjust_normals_for_dae(tri, rlgmesh)
+                for index in tri.indices:
+                    p.content += str(index) + ' '  # vertex position index
+                    p.content += str(index) + ' '  # vertex normal index
+                    p.content += str(index) + ' '  # vertex color index
+                    p.content += str(index) + ' '  # vertex uv coord index
 
 
 
@@ -404,67 +408,68 @@ def write_section_library_controllers(root : XmlNode, rlgroot : RlgRoot, filenam
         root: XmlNode, root of the dae file
     """
     library_controller = root.append_child(XmlNode('library_controllers'))
-    for rlgmesh in rlgroot.models[0].meshes:
-        controller = library_controller.append_child(XmlNode('controller', attributes={'id' : get_armature_id(filename_root, rlgmesh.hash_id), 'name' : 'Armature'}))
-        skin = controller.append_child(XmlNode('skin', attributes={'source' : '#' + get_mesh_id(filename_root, rlgmesh.hash_id)}))
-        skin.append_child(XmlNode('bind-shape-matrix', content='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1'))
-        # source tag (joints)
-        source_1 = skin.append_child(XmlNode('source', attributes={'id' : get_armature_field_id(filename_root, rlgmesh.hash_id, 'joints')}))
-        name_array = source_1.append_child(XmlNode('Name_array', attributes={'id' : get_armature_field_array_id(filename_root, rlgmesh.hash_id, 'joints'), 'count' : len(rlgmesh.bones)}))
-        for rlgbone in rlgmesh.bones:
-            name_array.content += get_bone_id(rlgbone.hash_id) + ' '
-        technique_common_1 = source_1.append_child(XmlNode('technique_common'))
-        accessor = technique_common_1.append_child(XmlNode('accessor', attributes={'source' : '#' + get_armature_field_array_id(filename_root, rlgmesh.hash_id, 'joint'),
-                                                                                   'count'  : len(rlgmesh.bones),
-                                                                                   'stride' : '1'})) 
-        accessor.append_child(XmlNode('param', attributes={'name' : 'JOINT', 'type' : 'name'}, has_body=False))
-        # source tag (inv bind matrix)
-        source_2 = skin.append_child(XmlNode('source', attributes={'id' : get_armature_field_id(filename_root, rlgmesh.hash_id, 'inv_bind_matrix')}))
-        float_array_1 = source_2.append_child(XmlNode('float_array', attributes={'id' : get_armature_field_array_id(filename_root, rlgmesh.hash_id, 'inv_bind_matrix'),
-                                                                                  'count' : len(rlgmesh.bones) * 16}))
-        for rlgbone in rlgmesh.bones:
-            for i in range(4):
-                for j in range(4):
-                    float_array_1.content += str(rlgbone.matrix[j][i]) + ' '
-        technique_common_2 = source_2.append_child(XmlNode('technique_common'))
-        accessor = technique_common_2.append_child(XmlNode('accessor', attributes={'source' : '#' + get_armature_field_array_id(filename_root, rlgmesh.hash_id, 'inv_bind_matrix'),
-                                                                                   'count' : len(rlgmesh.bones),
-                                                                                   'stride' : '16'}))
-        accessor.append_child(XmlNode('param', attributes={'name' : 'TRANSFORM', 'type' : 'float4x4'}, has_body=False))
-        # source tag (weights)
-        source_3 = skin.append_child(XmlNode('source', attributes={'id' : get_armature_field_id(filename_root, rlgmesh.hash_id, 'weights')}))
-        weight_count = len(rlgmesh.vertices)*4  # 4 is the maximum number of weights per vertex (in an rlg file)
-        float_array_2 = source_3.append_child(XmlNode('float_array', attributes={'id' : get_armature_field_array_id(filename_root, rlgmesh.hash_id, 'weights'),
-                                                                                 'count' : weight_count},  
-                                                                                 content='')) 
-        for rlgvertex in rlgmesh.vertices:
-            for weight in rlgvertex.bone_weights:
-                float_array_2.content += str(weight) + ' '
-        technique_common_3 = source_3.append_child(XmlNode('technique_common'))
-        accessor = technique_common_3.append_child(XmlNode('accessor', attributes={'source' : '#' + get_armature_field_array_id(filename_root, rlgmesh.hash_id, 'weights'),
-                                                                                   'count' : weight_count,  
-                                                                                   'stride' : '1'}))
-        accessor.append_child(XmlNode('param', attributes={'name' : 'WEIGHT', 'type' : 'float'}, has_body=False))  
-        # joints tag
-        joints = skin.append_child(XmlNode('joints'))
-        joints.append_child(XmlNode('input', attributes={'semantic': 'JOINT', 'source' : '#' + get_armature_field_id(filename_root, rlgmesh.hash_id, 'joints')}))
-        joints.append_child(XmlNode('input', attributes={'semantic': 'INV_BIND_MATRIX', 'source' : '#' + get_armature_field_id(filename_root, rlgmesh.hash_id, 'inv_bind_matrix')}))
-        # vertex_weights tag
-        vertex_weights = skin.append_child(XmlNode('vertex_weights', attributes={'count': len(rlgmesh.vertices)}))  
-        vertex_weights.append_child(XmlNode('input', 
-                                            attributes={'semantic': 'JOINT', 'source' : '#' + get_armature_field_id(filename_root, rlgmesh.hash_id, 'joints'), 'offset' : '0'},
-                                            has_body=False))
-        vertex_weights.append_child(XmlNode('input', 
-                                            attributes={'semantic': 'WEIGHT', 'source' : '#' + get_armature_field_id(filename_root, rlgmesh.hash_id, 'weights'), 'offset' : '1'},
-                                            has_body=False))
-        vcount = vertex_weights.append_child(XmlNode('vcount'))  
-        for i in range(len(rlgmesh.vertices)):
-            vcount.content += '4 '
-        v = vertex_weights.append_child(XmlNode('v'))  
-        for i, rlgvertex in enumerate(rlgmesh.vertices):
-            for j, bone_id in enumerate(rlgvertex.bone_ids):
-                index_of_current_weight = (4 * i) + j
-                v.content += '{0} {1} '.format(bone_id, index_of_current_weight)
+    for rlgmodel in rlgroot.models:
+        for rlgmesh in rlgmodel.meshes:
+            controller = library_controller.append_child(XmlNode('controller', attributes={'id' : get_armature_id(filename_root, rlgmesh.hash_id, rlgmodel.hash_id), 'name' : 'Armature'}))
+            skin = controller.append_child(XmlNode('skin', attributes={'source' : '#' + get_mesh_id(filename_root, rlgmesh.hash_id, rlgmodel.hash_id)}))
+            skin.append_child(XmlNode('bind-shape-matrix', content='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1'))
+            # source tag (joints)
+            source_1 = skin.append_child(XmlNode('source', attributes={'id' : get_armature_field_id(filename_root, rlgmesh.hash_id, 'joints', rlgmodel.hash_id)}))
+            name_array = source_1.append_child(XmlNode('Name_array', attributes={'id' : get_armature_field_array_id(filename_root, rlgmesh.hash_id, 'joints', rlgmodel.hash_id), 'count' : len(rlgmesh.bones)}))
+            for rlgbone in rlgmesh.bones:
+                name_array.content += get_bone_id(rlgbone.hash_id) + ' '
+            technique_common_1 = source_1.append_child(XmlNode('technique_common'))
+            accessor = technique_common_1.append_child(XmlNode('accessor', attributes={'source' : '#' + get_armature_field_array_id(filename_root, rlgmesh.hash_id, 'joint', rlgmodel.hash_id),
+                                                                                    'count'  : len(rlgmesh.bones),
+                                                                                    'stride' : '1'})) 
+            accessor.append_child(XmlNode('param', attributes={'name' : 'JOINT', 'type' : 'name'}, has_body=False))
+            # source tag (inv bind matrix)
+            source_2 = skin.append_child(XmlNode('source', attributes={'id' : get_armature_field_id(filename_root, rlgmesh.hash_id, 'inv_bind_matrix', rlgmodel.hash_id)}))
+            float_array_1 = source_2.append_child(XmlNode('float_array', attributes={'id' : get_armature_field_array_id(filename_root, rlgmesh.hash_id, 'inv_bind_matrix', rlgmodel.hash_id),
+                                                                                    'count' : len(rlgmesh.bones) * 16}))
+            for rlgbone in rlgmesh.bones:
+                for i in range(4):
+                    for j in range(4):
+                        float_array_1.content += str(rlgbone.matrix[j][i]) + ' '
+            technique_common_2 = source_2.append_child(XmlNode('technique_common'))
+            accessor = technique_common_2.append_child(XmlNode('accessor', attributes={'source' : '#' + get_armature_field_array_id(filename_root, rlgmesh.hash_id, 'inv_bind_matrix', rlgmodel.hash_id),
+                                                                                    'count' : len(rlgmesh.bones),
+                                                                                    'stride' : '16'}))
+            accessor.append_child(XmlNode('param', attributes={'name' : 'TRANSFORM', 'type' : 'float4x4'}, has_body=False))
+            # source tag (weights)
+            source_3 = skin.append_child(XmlNode('source', attributes={'id' : get_armature_field_id(filename_root, rlgmesh.hash_id, 'weights', rlgmodel.hash_id)}))
+            weight_count = len(rlgmesh.vertices)*4  # 4 is the maximum number of weights per vertex (in an rlg file)
+            float_array_2 = source_3.append_child(XmlNode('float_array', attributes={'id' : get_armature_field_array_id(filename_root, rlgmesh.hash_id, 'weights', rlgmodel.hash_id),
+                                                                                    'count' : weight_count},  
+                                                                                    content='')) 
+            for rlgvertex in rlgmesh.vertices:
+                for weight in rlgvertex.bone_weights:
+                    float_array_2.content += str(weight) + ' '
+            technique_common_3 = source_3.append_child(XmlNode('technique_common'))
+            accessor = technique_common_3.append_child(XmlNode('accessor', attributes={'source' : '#' + get_armature_field_array_id(filename_root, rlgmesh.hash_id, 'weights', rlgmodel.hash_id),
+                                                                                    'count' : weight_count,  
+                                                                                    'stride' : '1'}))
+            accessor.append_child(XmlNode('param', attributes={'name' : 'WEIGHT', 'type' : 'float'}, has_body=False))  
+            # joints tag
+            joints = skin.append_child(XmlNode('joints'))
+            joints.append_child(XmlNode('input', attributes={'semantic': 'JOINT', 'source' : '#' + get_armature_field_id(filename_root, rlgmesh.hash_id, 'joints', rlgmodel.hash_id)}))
+            joints.append_child(XmlNode('input', attributes={'semantic': 'INV_BIND_MATRIX', 'source' : '#' + get_armature_field_id(filename_root, rlgmesh.hash_id, 'inv_bind_matrix', rlgmodel.hash_id)}))
+            # vertex_weights tag
+            vertex_weights = skin.append_child(XmlNode('vertex_weights', attributes={'count': len(rlgmesh.vertices)}))  
+            vertex_weights.append_child(XmlNode('input', 
+                                                attributes={'semantic': 'JOINT', 'source' : '#' + get_armature_field_id(filename_root, rlgmesh.hash_id, 'joints', rlgmodel.hash_id), 'offset' : '0'},
+                                                has_body=False))
+            vertex_weights.append_child(XmlNode('input', 
+                                                attributes={'semantic': 'WEIGHT', 'source' : '#' + get_armature_field_id(filename_root, rlgmesh.hash_id, 'weights', rlgmodel.hash_id), 'offset' : '1'},
+                                                has_body=False))
+            vcount = vertex_weights.append_child(XmlNode('vcount'))  
+            for i in range(len(rlgmesh.vertices)):
+                vcount.content += '4 '
+            v = vertex_weights.append_child(XmlNode('v'))  
+            for i, rlgvertex in enumerate(rlgmesh.vertices):
+                for j, bone_id in enumerate(rlgvertex.bone_ids):
+                    index_of_current_weight = (4 * i) + j
+                    v.content += '{0} {1} '.format(bone_id, index_of_current_weight)
 
 
 
@@ -500,24 +505,25 @@ def write_section_library_visual_scenes(root : XmlNode, rlgroot : RlgRoot, filen
                 for j in range(4):
                     matrix.content += str(rlgbone.matrix[j][i]) + ' '
 
-    for i, rlgmesh in enumerate(rlgroot.models[0].meshes):
-        # node tag
-        geometry_name = filename_root + "_hashid" + hex(rlgmesh.hash_id)
-        node = visual_scene.append_child(XmlNode('node', attributes={'id' : geometry_name, 'name' : geometry_name, 'type' : 'NODE'}))
-        # matrix tag
-        # node.append_child(XmlNode('matrix', attributes={'sid' : 'transform'}, content='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1'))
-        # instance_geometry tag
-        url = '#' + geometry_name + '-mesh'
-        texture_hash = rlgmesh.material.texture_hashes[0]
-        image_base_name = hex(texture_hash).replace('0x', '') + '_enc_6'
-        # instance controller tag
-        instance_controller = node.append_child(XmlNode('instance_controller', attributes={'url' : '#' + get_armature_id(filename_root, rlgmesh.hash_id)}))
-        instance_controller.append_child(XmlNode('skeleton', content='#Armature'))
+    for rlgmodel in rlgroot.models:
+        for i, rlgmesh in enumerate(rlgmodel.meshes):
+            # node tag
+            geometry_name = filename_root + "_hashid" + hex(rlgmesh.hash_id)
+            node = visual_scene.append_child(XmlNode('node', attributes={'id' : geometry_name, 'name' : geometry_name, 'type' : 'NODE'}))
+            # matrix tag
+            # node.append_child(XmlNode('matrix', attributes={'sid' : 'transform'}, content='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1'))
+            # instance_geometry tag
+            url = '#' + geometry_name + '-mesh'
+            texture_hash = rlgmesh.material.texture_hashes[0]
+            image_base_name = hex(texture_hash).replace('0x', '') + '_enc_6'
+            # instance controller tag
+            instance_controller = node.append_child(XmlNode('instance_controller', attributes={'url' : '#' + get_armature_id(filename_root, rlgmesh.hash_id, rlgmodel.hash_id)}))
+            instance_controller.append_child(XmlNode('skeleton', content='#Armature'))
 
-        bind_material = instance_controller.append_child(XmlNode('bind_material'))
-        technique_common = bind_material.append_child(XmlNode('technique_common'))
-        instance_material = technique_common.append_child(XmlNode('instance_material', attributes={'symbol' : image_base_name + '-material', 'target' : '#' + image_base_name + '-material'}))
-        instance_material.append_child(XmlNode('bind_vertex_input', attributes={'semantic' : 'UV0', 'input_semantic' : 'TEXCOORD', 'input_set' : '0'}, has_body=False))
+            bind_material = instance_controller.append_child(XmlNode('bind_material'))
+            technique_common = bind_material.append_child(XmlNode('technique_common'))
+            instance_material = technique_common.append_child(XmlNode('instance_material', attributes={'symbol' : image_base_name + '-material', 'target' : '#' + image_base_name + '-material'}))
+            instance_material.append_child(XmlNode('bind_vertex_input', attributes={'semantic' : 'UV0', 'input_semantic' : 'TEXCOORD', 'input_set' : '0'}, has_body=False))
 
 
 
@@ -564,19 +570,25 @@ def read_dae(filepath : str) -> RlgRoot:
         RlgRoot object that represents the 3D model
     """
     rlgroot = RlgRoot()
-    rlgmodel = RlgModel()
-    rlgroot.models.append(rlgmodel)
     xmlroot = read_xml(filepath)
 
     library_geometries = xmlroot.find('library_geometries')
     geometry_tags = library_geometries.findall('geometry')
     for i, xmlgeometry in enumerate(geometry_tags):
         rlgmesh = RlgMesh()
+        # detect model. Create if new
+        model_hash_match = re.search(REGEX_MODEL, xmlgeometry.get('id')) 
+        model_hash_id = int(model_hash_match.group(), 16) if model_hash_match != None else None
+        rlgmodel = rlgroot.get_model_by_id(model_hash_id)
+        if rlgmodel == None:
+            rlgmodel = RlgModel(hash_id=model_hash_id)
+        
+        # Add mesh to model
         rlgmodel.meshes.append(rlgmesh)
         hash_id_match = re.search(REGEX_HASHID, xmlgeometry.get('id')) 
         rlgmesh.hash_id = int(hash_id_match.group(), 16) if hash_id_match != None else None
         read_triangles_and_vertices_of_mesh(rlgmesh=rlgmesh, xmlgeometry=xmlgeometry)
-        #if i not in [4,5,7,8,9,10,11]:  # TODO: temp thing. pls remove
+        #if i not in [4,5,7,8,9,10,11]:
         #    rlgmesh.faces.clear()
     
     library_controllers = xmlroot.find('library_controllers')
