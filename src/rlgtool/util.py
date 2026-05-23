@@ -261,7 +261,7 @@ def float_to_bytes2(float : float) -> bytes:
 
     Args:
         float: float number
-    Return:
+    Returns:
         bytes object of length 2
     """
     integer = int(float * 1024)
@@ -273,15 +273,14 @@ def float_to_bytes2(float : float) -> bytes:
 def float_to_bytes1(float : float) -> bytes:
     """Convert a IEEE-754 standard floating point number into a bytes object of len 1
 
-    TODO: I copypasted this at 12am. It might be incorrect
     This function takes a float value as input.
     It then multiplies this float by 255. Then it casts it to a bytes object with the length of 1.
-    That's how uv coordinates are represented in .rlg files.
+    That's how normals are sometimes represented in .rlg files.
 
     Args:
         float: float number
-    Return:
+    Returns:
         bytes object of length 1
     """
     integer = int(float * 255)
-    return integer.to_bytes(2, 'big', signed=True)
+    return integer.to_bytes(1, 'big', signed=True)

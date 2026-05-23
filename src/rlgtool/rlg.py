@@ -80,7 +80,7 @@ def read_materials(rlgfile, section : nlgutil.Section, root : RlgRoot):
         for mesh in model.meshes:
             mesh.material = RlgMaterial()
             rlgfile.seek(section.body_location() + mesh.material_offset, 0)
-            for i in range(NUM_MATERIAL_TEXTURES):
+            for i in range(NUM_MATERIAL_TEXTURES):  # TODO: this is wrong.
                 mesh.material.texture_hashes.append(int.from_bytes(rlgfile.read(4), 'big'))
                 mesh.material.texture_unk.append(int.from_bytes(rlgfile.read(4), 'big'))
             for i in range(MATERIAL_OTHER_DATA_BYTES):
@@ -409,7 +409,7 @@ def patch_rlg(srcrlg, dstrlg, new_root : RlgRoot, old_root : RlgRoot,
 
 
     for section in root_section.children:
-        if section.type in [SECTION_MODEL_DATA, SECTION_MATRIX_DATA]:
+        if section.type in [SECTION_MODEL_DATA, SECTION_MATRIX_DATA, SECTION_MATERIAL_DATA]:
             nlgutil.copy_section(src=srcrlg, dst=dstrlg, section=section) 
         else:
             new_header_location = dstrlg.tell()
@@ -421,8 +421,8 @@ def patch_rlg(srcrlg, dstrlg, new_root : RlgRoot, old_root : RlgRoot,
                 else:
                     write_indices(rlgfile=dstrlg, root=new_root)                    
             
-            elif section.type == SECTION_MATERIAL_DATA:
-                write_material(rlgfile=dstrlg, new_root=new_root, old_root=old_root)
+            #elif section.type == SECTION_MATERIAL_DATA:
+            #    write_material(rlgfile=dstrlg, new_root=new_root, old_root=old_root)
 
             elif section.type == SECTION_VERTEX_DATA:
                 write_vertices(rlgfile=dstrlg, section=section, new_root=new_root, old_root=old_root)
@@ -430,7 +430,7 @@ def patch_rlg(srcrlg, dstrlg, new_root : RlgRoot, old_root : RlgRoot,
             elif section.type == SECTION_VERTEX_ATTRIBUTES:
                 write_vaps(rlgfile=dstrlg, new_root=new_root, old_root=old_root)
 
-            elif section.type == SECTION_MESH_DATA:  # TODO: make this generic, iterate on all models
+            elif section.type == SECTION_MESH_DATA:
                 write_meshes(rlgfile=dstrlg, new_root=new_root, old_root=old_root, keep_old_indices=keep_old_indices)
             
             elif section.type == SECTION_SKELETON_CONTAINER:
