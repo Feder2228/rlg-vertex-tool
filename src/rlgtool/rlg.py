@@ -223,11 +223,10 @@ def read_meshes(rlgfile, section : nlgutil.Section, root : RlgRoot):
         section: object that identifies the section within the file
         root: RlgRoot object to add the RlgMeshes to
     """
+    # go to where data starts
+    rlgfile.seek(section.body_location(), 0)
     for model in root.models:
-        # go to where data starts
-        rlgfile.seek(section.body_location(), 0)
-        mesh_count = section.size//MESH_RECORD_SIZE
-        for i in range(mesh_count):
+        for i in range(model.mesh_count):
             unknown_data = b''
             index_offset  = int.from_bytes(rlgfile.read(4), "big")
             index_format        = int.from_bytes(rlgfile.read(2), "big")
