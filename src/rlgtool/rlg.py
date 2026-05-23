@@ -402,10 +402,10 @@ def patch_rlg(srcrlg, dstrlg, new_root : RlgRoot, old_root : RlgRoot,
     nlgutil.write_section_header(rlgfile=dstrlg, section=root_section)
 
     # We sort the new file's meshes to match the original file order. 
-    # Then we generate the Vertex Attribute Pointers for the new meshes
-    # TODO: should we also sort models?
-    new_root.models[0].match_mesh_order(other=old_root.models[0])
-    new_root.models[0].generate_vaps(other=old_root.models[0])  # TODO: make this generic
+    new_root.match_model_order(other=old_root)
+    for model in new_root.models:
+        model.match_mesh_order(other=old_root.get_model_by_id(model.hash_id))
+        model.generate_vaps(other=old_root.get_model_by_id(model.hash_id))
 
 
     for section in root_section.children:
@@ -431,7 +431,7 @@ def patch_rlg(srcrlg, dstrlg, new_root : RlgRoot, old_root : RlgRoot,
                 write_vaps(rlgfile=dstrlg, new_root=new_root, old_root=old_root)
 
             elif section.type == SECTION_MESH_DATA:  # TODO: make this generic, iterate on all models
-                write_meshes(rlgfile=dstrlg, new_model=new_root.models[0], old_model=old_root.models[0], keep_old_indices=keep_old_indices)
+                write_meshes(rlgfile=dstrlg, new_root=new_root, old_root=old_root, keep_old_indices=keep_old_indices)
             
             elif section.type == SECTION_SKELETON_CONTAINER:
                 patch_skeleton_section(srcrlg=srcrlg, dstrlg=dstrlg, new_root=new_root, old_root=old_root, section=section)
@@ -486,8 +486,9 @@ def write_material(rlgfile, new_root : RlgRoot, old_root : RlgRoot):
         old_root: RlgRoot object containing the old data
     """
     for new_model in new_root.models:
+        old_model = old_root.get_model_by_id(new_model.hash_id)
         for new_mesh in new_model.meshes:
-            old_mesh = old_root.models[0].get_mesh_by_id(new_mesh.hash_id)  # TODO: change this to make multi-model mods possible
+            old_mesh = old_model.get_mesh_by_id(new_mesh.hash_id)
             for i in range(NUM_MATERIAL_TEXTURES):
                 rlgfile.write(old_mesh.material.texture_hashes[i].to_bytes(4, 'big'))
                 rlgfile.write(old_mesh.material.texture_unk[i].to_bytes(4, 'big'))
@@ -524,8 +525,9 @@ def write_vertices(rlgfile, section : nlgutil.Section, new_root : RlgRoot, old_r
         old_mesh: used to find the correct place in the file where to write vertices
     """
     for new_model in new_root.models:
+        old_model = old_root.get_model_by_id(new_model.hash_id)
         for new_mesh in new_model.meshes:
-            old_mesh = old_root.models[0].get_mesh_by_id(new_mesh.hash_id)  # TODO: change this to make multi-model mods possible
+            old_mesh = old_model.get_mesh_by_id(new_mesh.hash_id)
             if len(new_mesh.vertices) != len(old_mesh.vertices):
                 print('newL={0} newVC={1} oldL={2} oldVC={3} '.format(len(new_mesh.vertices), new_mesh.vertex_count, len(old_mesh.vertices), old_mesh.vertex_count))
             for k in range(len(new_mesh.vertices)):
@@ -601,7 +603,7 @@ def write_vaps(rlgfile, new_root : RlgRoot, old_root : RlgRoot):
 
 
 
-def write_meshes(rlgfile, new_model : RlgModel, old_model : RlgModel, keep_old_indices=True):
+def write_meshes(rlgfile, new_root : RlgRoot, old_root : RlgRoot, keep_old_indices=True):
     """Write the mesh data to an rlg file
 
     RLGFILE MUST HAVE ITS POINTER AT THE BEGINNING OF MESH SECTION'S BODY
@@ -615,27 +617,29 @@ def write_meshes(rlgfile, new_model : RlgModel, old_model : RlgModel, keep_old_i
     VAP_RECORD_SIZE = 8
     index_offset = 0
     vap_offset = 0
-    for i, new_mesh in enumerate(new_model.meshes):
-        old_mesh = old_model.get_mesh_by_id(new_mesh.hash_id)
-        if keep_old_indices:
-            index_count = old_mesh.index_count
-        else:
-            index_count = len(new_mesh.encode_indices())
-        rlgfile.write(index_offset.to_bytes(4, 'big'))
-        rlgfile.write(old_mesh.index_format.to_bytes(2, 'big'))
-        rlgfile.write(index_count.to_bytes(2, 'big'))
-        rlgfile.write(len(new_mesh.vertices).to_bytes(2, 'big'))
-        rlgfile.write(old_mesh.unknown_data[0:1])
-        rlgfile.write(len(new_mesh.vaps).to_bytes(1, 'big'))
-        rlgfile.write(vap_offset.to_bytes(4, 'big'))
-        rlgfile.write(old_mesh.material_hash_id.to_bytes(4, 'big'))
-        rlgfile.write(new_mesh.hash_id.to_bytes(4, 'big'))
-        rlgfile.write(old_mesh.unknown_data[1:9])
-        rlgfile.write(old_mesh.material_offset.to_bytes(4, 'big'))
-        rlgfile.write(old_mesh.unknown_data[9:21])
-        # increment the offsets for next iteration
-        index_offset += index_count*INDEX_RECORD_SIZE
-        vap_offset += len(new_mesh.vaps)*VAP_RECORD_SIZE
+    for new_model in new_root.models:
+        old_model = old_root.get_model_by_id(new_model.hash_id)
+        for new_mesh in new_model.meshes:
+            old_mesh = old_model.get_mesh_by_id(new_mesh.hash_id)
+            if keep_old_indices:
+                index_count = old_mesh.index_count
+            else:
+                index_count = len(new_mesh.encode_indices())
+            rlgfile.write(index_offset.to_bytes(4, 'big'))
+            rlgfile.write(old_mesh.index_format.to_bytes(2, 'big'))
+            rlgfile.write(index_count.to_bytes(2, 'big'))
+            rlgfile.write(len(new_mesh.vertices).to_bytes(2, 'big'))
+            rlgfile.write(old_mesh.unknown_data[0:1])
+            rlgfile.write(len(new_mesh.vaps).to_bytes(1, 'big'))
+            rlgfile.write(vap_offset.to_bytes(4, 'big'))
+            rlgfile.write(old_mesh.material_hash_id.to_bytes(4, 'big'))
+            rlgfile.write(new_mesh.hash_id.to_bytes(4, 'big'))
+            rlgfile.write(old_mesh.unknown_data[1:9])
+            rlgfile.write(old_mesh.material_offset.to_bytes(4, 'big'))
+            rlgfile.write(old_mesh.unknown_data[9:21])
+            # increment the offsets for next iteration
+            index_offset += index_count*INDEX_RECORD_SIZE
+            vap_offset += len(new_mesh.vaps)*VAP_RECORD_SIZE
 
 
     
@@ -643,7 +647,7 @@ def write_meshes(rlgfile, new_model : RlgModel, old_model : RlgModel, keep_old_i
 def write_bone_mesh_hashes(rlgfile, new_root : RlgRoot, old_root : RlgRoot, mesh_number : int):
     """Write the bone hashes of a mesh to an rlg file
     """
-    old_mesh = old_root.models[0].meshes[mesh_number]
+    old_mesh = old_root.get_mesh_by_number(mesh_number)
     for bone in old_mesh.bones:
         rlgfile.write(bone.hash_id.to_bytes(4, 'big'))
 

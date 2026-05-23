@@ -37,11 +37,48 @@ class RlgRoot:
                 return model
         return None
     
+    def get_mesh_by_number(self, number):
+        for model in self.models:
+            if number >= len(model.meshes):
+                number -= len(model.meshes)
+            else:
+                return model.meshes[number]
+        return None
+    
     def get_bone_by_id(self, hash_id=None):
         for bone in self.bones:
             if bone.hash_id == hash_id:
                 return bone
         return None
+    
+    def match_model_order(self, other):  # no_size_change_mode=True
+        """Sort self.models to match the hash_id order of 
+        other.models
+        
+        If self is missing a model with an hash_id X, copy it from other to
+        self, but empty the vertices and faces of the copy
+
+        Args:
+            other: RlgRoot object to mimic the model order of
+        """
+        new_model_list = []
+        hash_id_list = other.get_list_of_model_hash_ids()
+        for hash_id in hash_id_list:
+            model = self.get_model_by_id(hash_id)
+            if model != None:
+                new_model_list.append(model)
+            else:
+                filler_model = copy.deepcopy(other.get_model_by_id(hash_id))
+                filler_model.meshes.clear()
+                new_model_list.append(filler_model)
+        self.models = new_model_list
+
+    def get_list_of_model_hash_ids(self):
+        hash_id_list = []
+        for model in self.models:
+            hash_id_list.append(model.hash_id)
+        return hash_id_list
+
 
 
 class RlgModel:
