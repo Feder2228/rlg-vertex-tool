@@ -5,7 +5,7 @@ from .federxml import *
 from . import nlgutil
 
 
-REGEX_HASHID = r'(?<=_hashid0x)[0-9a-f]+'
+REGEX_MESH = r'(?<=_hashid0x)[0-9a-f]+'
 REGEX_MODEL = r'(?<=_model0x)[0-9a-f]+'
 REGEX_BONE = r'(?<=bone_)[0-9a-f]+'
 
@@ -508,7 +508,7 @@ def write_section_library_visual_scenes(root : XmlNode, rlgroot : RlgRoot, filen
     for rlgmodel in rlgroot.models:
         for i, rlgmesh in enumerate(rlgmodel.meshes):
             # node tag
-            geometry_name = filename_root + "_hashid" + hex(rlgmesh.hash_id)
+            geometry_name = get_mesh_id(filename_root, rlgmesh.hash_id, rlgmodel.hash_id)
             node = visual_scene.append_child(XmlNode('node', attributes={'id' : geometry_name, 'name' : geometry_name, 'type' : 'NODE'}))
             # matrix tag
             # node.append_child(XmlNode('matrix', attributes={'sid' : 'transform'}, content='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1'))
@@ -572,32 +572,77 @@ def read_dae(filepath : str) -> RlgRoot:
     rlgroot = RlgRoot()
     xmlroot = read_xml(filepath)
 
+    # READ LIBRARY GEOMETRIES
     library_geometries = xmlroot.find('library_geometries')
     geometry_tags = library_geometries.findall('geometry')
     for i, xmlgeometry in enumerate(geometry_tags):
-        rlgmesh = RlgMesh()
-        # detect model. Create if new
-        model_hash_match = re.search(REGEX_MODEL, xmlgeometry.get('id')) 
-        model_hash_id = int(model_hash_match.group(), 16) if model_hash_match != None else None
+        # Detect which model this mesh belongs to
+        # Create new model if necessary
+        model_hash_id = get_geometry_model_hash(xmlgeometry)
+        if model_hash_id == None:
+            raise Exception('couldn\'t read the mesh hash_id of geometry tag number {0}'.format(i))
         rlgmodel = rlgroot.get_model_by_id(model_hash_id)
         if rlgmodel == None:
             rlgmodel = RlgModel(hash_id=model_hash_id)
+            rlgroot.models.append(rlgmodel)
         
         # Add mesh to model
+        rlgmesh = RlgMesh()
         rlgmodel.meshes.append(rlgmesh)
-        hash_id_match = re.search(REGEX_HASHID, xmlgeometry.get('id')) 
-        rlgmesh.hash_id = int(hash_id_match.group(), 16) if hash_id_match != None else None
+        mesh_hash_id = get_geometry_mesh_hash(xmlgeometry)
+        if mesh_hash_id == None:
+            raise Exception('couldn\'t read the mesh hash_id of controller tag number {0}'.format(i))
+        rlgmesh.hash_id = mesh_hash_id
+
         read_triangles_and_vertices_of_mesh(rlgmesh=rlgmesh, xmlgeometry=xmlgeometry)
         #if i not in [4,5,7,8,9,10,11]:
         #    rlgmesh.faces.clear()
     
+    # READ LIBRARY CONTROLLERS
     library_controllers = xmlroot.find('library_controllers')
     controller_tags = library_controllers.findall('controller')
     for i, xmlcontroller in enumerate(controller_tags):
-        rlgmesh = rlgmodel.meshes[i]
+        # Detect the model hash id
+        model_hash_id = get_geometry_model_hash(xmlcontroller)
+        if model_hash_id == None:
+            raise Exception('couldn\'t read the model hash_id of controller tag number {0}'.format(i))
+        rlgmodel = rlgroot.get_model_by_id(model_hash_id)
+        # Detect the mesh hash id
+        mesh_hash_id = get_geometry_mesh_hash(xmlcontroller)
+        if mesh_hash_id == None:
+            raise Exception('couldn\'t read the mesh hash_id of controller tag number {0}'.format(i))
+        rlgmesh = rlgmodel.get_mesh_by_id(mesh_hash_id)
         read_vertex_weights_of_mesh(rlgmesh=rlgmesh, xmlcontroller=xmlcontroller)
     
     return rlgroot
+
+
+
+
+def get_geometry_mesh_hash(xmlnode : XmlNode) -> int|None:
+    """Get the mesh hash id of the geometry tag
+
+    Args:
+        xmlnode: tag where to look for the hash_id
+    Return:
+        int, the hash_id, or None if couldn't find
+    """
+    hash_id_match = re.search(REGEX_MESH, xmlnode.get('id')) 
+    return int(hash_id_match.group(), 16) if hash_id_match != None else None
+
+
+
+
+def get_geometry_model_hash(xmlnode : XmlNode) -> int|None:
+    """Get the model hash id of the geometry tag
+
+    Args:
+        xmlnode: tag where to look for the hash_id
+    Return:
+        int, the hash_id, or None if couldn't find
+    """
+    hash_id_match = re.search(REGEX_MODEL, xmlnode.get('id')) 
+    return int(hash_id_match.group(), 16) if hash_id_match != None else None
 
 
 
