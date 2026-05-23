@@ -489,7 +489,7 @@ def write_section_library_visual_scenes(root : XmlNode, rlgroot : RlgRoot, filen
         for rlg_level_one_bone in rlgroot.models[0].root_bone.children:
             write_tree_of_bone_nodes(xmlnode=node_armature, rlgbone=rlg_level_one_bone)
     else:
-        for rlgbone in rlgroot.models[0].bones:
+        for rlgbone in rlgroot.bones:
             node_bone = node_armature.append_child(XmlNode('node', attributes={'id' : get_armature_bone_id(rlgbone.hash_id),
                                                                             'name' : get_armature_bone_id(rlgbone.hash_id),
                                                                             'sid' : get_bone_id(rlgbone.hash_id),

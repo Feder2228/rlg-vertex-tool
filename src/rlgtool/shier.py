@@ -63,7 +63,7 @@ def bone_shier_index_to_bone_hash(shierfile, bone_index : int) -> int:
 
 
 
-def organize_bone_hierarchy(shierfile, model : rlg_data_structures.RlgModel):
+def organize_bone_hierarchy(shierfile, root : rlg_data_structures.RlgModel):
     """organize the bones of a model as a tree
 
     Mutates model and the elements of its bones list.
@@ -75,14 +75,14 @@ def organize_bone_hierarchy(shierfile, model : rlg_data_structures.RlgModel):
         model: RlgModel object
     """
     root_bone = rlg_data_structures.RlgBone(hash_id=-1, matrix=None)
-    for bone in model.bones:
+    for bone in root.bones:
         parent_bone_hash = get_parent_bone_hash(shierfile=shierfile, bone_hash=bone.hash_id)
-        parent = model.get_bone_by_id(hash_id=parent_bone_hash)
+        parent = root.get_bone_by_id(hash_id=parent_bone_hash)
         if parent != None:
             parent.children.append(bone)
         else:
             root_bone.children.append(bone)
-    model.root_bone = root_bone
+    root.root_bone = root_bone
 
 
 

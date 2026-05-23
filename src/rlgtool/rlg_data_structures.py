@@ -12,11 +12,21 @@ class RlgRoot:
         matrix: a 4x4 transform matrix. We don't know what this is for
         models: a list of models. Usually it's just one
     """
-    def __init__(self, matrices=None, models=[]):
+    def __init__(self, matrices=None, models=[], bones=[]):
         self.matrices = matrices
         self.models = models
         if self.models == []:
             self.models = list()
+        self.bones = bones
+        if self.bones == []:
+            self.bones = list()
+        self.root_bone = None
+    
+    def get_bone_by_id(self, hash_id=None):
+        for bone in self.bones:
+            if bone.hash_id == hash_id:
+                return bone
+        return None
 
 
 class RlgModel:
@@ -38,11 +48,7 @@ class RlgModel:
         self.meshes = meshes
         self.unknown_data = unknown_data
         if self.meshes == []:
-            self.meshes = list()
-        self.bones = bones
-        if self.bones == []:
-            self.bones = list()
-        self.root_bone = None
+            self.meshes = list()        
 
     def get_mesh_by_id(self, hash_id=None):
         """Find mesh of the corresponding hash_id
@@ -67,12 +73,6 @@ class RlgModel:
                 if hash not in texture_hashes:
                     texture_hashes.append(hash)
         return texture_hashes
-    
-    def get_bone_by_id(self, hash_id=None):
-        for bone in self.bones:
-            if bone.hash_id == hash_id:
-                return bone
-        return None
     
     def match_mesh_order(self, other):  # no_size_change_mode=True
         """Sort self.meshes to match the hash_id order of 
@@ -173,7 +173,7 @@ class RlgMesh:
             flags: int
         """
         for vap in self.vaps:
-            if vap.type == type:
+            if vap.flags == flags:
                 return vap
         return None
     
@@ -367,4 +367,4 @@ class RlgBone:
         self.hash_id = hash_id
         self.matrix = matrix
         self.children = list()
-        self.tip_offset = [0.0,0.5,0.0]
+        self.tip_offset = [0.0,0.5,0.0]  # don't mind this

@@ -328,7 +328,7 @@ def read_bone_mesh_hashes(rlgfile, sections : list[nlgutil.Section], root : RlgR
             rlgfile.seek(section.body_location())
 
             for i in range(0, section.size, 4):
-                mesh.bones.append(model.get_bone_by_id(int.from_bytes(rlgfile.read(4))))
+                mesh.bones.append(root.get_bone_by_id(int.from_bytes(rlgfile.read(4))))
 
 
 
@@ -345,43 +345,42 @@ def read_bone_matrices(rlgfile, section : nlgutil.Section, root : RlgModel, shie
     """
     # TODO: rewrite like everything in this method. Lmao
     BONE_RECORD_SIZE = 0x44
-    for model in root.models:
-        rlgfile.seek(section.body_location(), 0)  # with this, every model reads the all the bones TODO: maybe move bones to the root in the future
-        bone_count = section.size // BONE_RECORD_SIZE    
-        for i in range(bone_count):
-            hash_id=int.from_bytes(rlgfile.read(4))
-            rlgfile.read(16)  # skip 16 bytes
-            scale_x = util.bytes_to_float(rlgfile.read(4))
-            scale_y = util.bytes_to_float(rlgfile.read(4))
-            scale_z = util.bytes_to_float(rlgfile.read(4))
-            rlgfile.read(4)
-            rotate_x = util.bytes_to_float(rlgfile.read(4))
-            rotate_y = util.bytes_to_float(rlgfile.read(4))
-            rotate_z = util.bytes_to_float(rlgfile.read(4))
-            rlgfile.read(4)
-            translate_x = util.bytes_to_float(rlgfile.read(4))
-            translate_y = util.bytes_to_float(rlgfile.read(4))
-            translate_z = util.bytes_to_float(rlgfile.read(4))
-            rlgfile.read(4)
+    rlgfile.seek(section.body_location(), 0)  
+    bone_count = section.size // BONE_RECORD_SIZE    
+    for i in range(bone_count):
+        hash_id=int.from_bytes(rlgfile.read(4))
+        rlgfile.read(16)  # skip 16 bytes
+        scale_x = util.bytes_to_float(rlgfile.read(4))
+        scale_y = util.bytes_to_float(rlgfile.read(4))
+        scale_z = util.bytes_to_float(rlgfile.read(4))
+        rlgfile.read(4)
+        rotate_x = util.bytes_to_float(rlgfile.read(4))
+        rotate_y = util.bytes_to_float(rlgfile.read(4))
+        rotate_z = util.bytes_to_float(rlgfile.read(4))
+        rlgfile.read(4)
+        translate_x = util.bytes_to_float(rlgfile.read(4))
+        translate_y = util.bytes_to_float(rlgfile.read(4))
+        translate_z = util.bytes_to_float(rlgfile.read(4))
+        rlgfile.read(4)
 
-            translation_matrix = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [translate_x,translate_y,-translate_z,1]])
-            # rotation_matrix_x = np.array([[1,0,0,0], [0,np.cos(rotate_x),np.sin(rotate_x),0], [0,np.sin(-rotate_x),np.cos(rotate_x),0], [0,0,0,1]])
-            # rotation_matrix_y = np.array([[np.cos(rotate_y),0,np.sin(-rotate_y),0], [0,1,0,0], [np.sin(rotate_y),0,np.cos(rotate_y),0], [0,0,0,1]])
-            # rotation_matrix_z = np.array([[np.cos(rotate_z),np.sin(rotate_z),0,0], [np.sin(-rotate_z),np.cos(rotate_z),0,0], [0,0,1,0], [0,0,0,1]])
-            # scale_matrix = np.array([[scale_x,0,0,0], [0,scale_y,0,0], [0,0,scale_z,0], [0,0,0,1]])
+        translation_matrix = np.array([[1,0,0,0], [0,1,0,0], [0,0,1,0], [translate_x,translate_y,-translate_z,1]])
+        # rotation_matrix_x = np.array([[1,0,0,0], [0,np.cos(rotate_x),np.sin(rotate_x),0], [0,np.sin(-rotate_x),np.cos(rotate_x),0], [0,0,0,1]])
+        # rotation_matrix_y = np.array([[np.cos(rotate_y),0,np.sin(-rotate_y),0], [0,1,0,0], [np.sin(rotate_y),0,np.cos(rotate_y),0], [0,0,0,1]])
+        # rotation_matrix_z = np.array([[np.cos(rotate_z),np.sin(rotate_z),0,0], [np.sin(-rotate_z),np.cos(rotate_z),0,0], [0,0,1,0], [0,0,0,1]])
+        # scale_matrix = np.array([[scale_x,0,0,0], [0,scale_y,0,0], [0,0,scale_z,0], [0,0,0,1]])
 
-            matrix = translation_matrix
-            # matrix = np.matmul(rotation_matrix_x, matrix)
-            # matrix = np.matmul(rotation_matrix_y, matrix)
-            # matrix = np.matmul(rotation_matrix_z, matrix)
-            # matrix = np.matmul(scale_matrix, matrix)
-            matrix = matrix.tolist()
-            bone = RlgBone(hash_id=hash_id, matrix=matrix)
-            model.bones.append(bone)
-            
-            # if a shier file is provided 
-            if shierfile != None:
-                bone.tip_offset[0], bone.tip_offset[1], bone.tip_offset[2] = shier.get_bone_float_vector(shierfile=shierfile, bone_hash=hash_id)
+        matrix = translation_matrix
+        # matrix = np.matmul(rotation_matrix_x, matrix)
+        # matrix = np.matmul(rotation_matrix_y, matrix)
+        # matrix = np.matmul(rotation_matrix_z, matrix)
+        # matrix = np.matmul(scale_matrix, matrix)
+        matrix = matrix.tolist()
+        bone = RlgBone(hash_id=hash_id, matrix=matrix)
+        root.bones.append(bone)
+        
+        # if a shier file is provided 
+        #if shierfile != None:
+        #    bone.tip_offset[0], bone.tip_offset[1], bone.tip_offset[2] = shier.get_bone_float_vector(shierfile=shierfile, bone_hash=hash_id)
              
 
 
@@ -655,9 +654,8 @@ def write_bone_mesh_hashes(rlgfile, new_root : RlgRoot, old_root : RlgRoot, mesh
 def write_bone_matrices(rlgfile, new_root : RlgRoot, old_root : RlgRoot):
     """Write the bone hashes of a mesh to an rlg file
     """
-    for old_model in old_root.models:
-        for bone in old_model.bones:
-            rlgfile.write(bone.hash_id.to_bytes(4, 'big'))
-            for i in range(4):
-                for j in range(4):
-                    rlgfile.write(bone.matrix[i][j].to_bytes(4, 'big'))
+    for bone in old_root.bones:
+        rlgfile.write(bone.hash_id.to_bytes(4, 'big'))
+        for i in range(4):
+            for j in range(4):
+                rlgfile.write(bone.matrix[i][j].to_bytes(4, 'big'))
