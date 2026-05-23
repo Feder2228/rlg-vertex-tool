@@ -28,22 +28,22 @@ def __main__():
         exit()
 
     if(sys.argv[1] in COMMAND_DEC):
-        if get_file_extension(sys.argv[2]) != 'rlg':
-            raise Exception('this command supports rlg file format only.')
+        if get_file_extension(sys.argv[2]) not in ['rlg', 'glg']:
+            raise Exception('this command supports rlg and glg file formats only.')
         rlgtool.export_rlg_as_dae(sys.argv[2])
 
     elif(sys.argv[1] in COMMAND_DECSHIER):
-        if get_file_extension(sys.argv[2]) != 'rlg':
+        if get_file_extension(sys.argv[2]) not in ['rlg', 'glg']:
             raise Exception('first argument must be a file of type rlg')
         if get_file_extension(sys.argv[3]) != 'shier':
             raise Exception('second argument must be a file of type shier')
         rlgtool.export_rlg_as_dae(rlgpath=sys.argv[2], shierpath=sys.argv[3])
 
     elif(sys.argv[1] in COMMAND_PATCH):
-        if get_file_extension(sys.argv[2]) != 'rlg':
-            raise Exception('first argument must be a file of type rlg')
-        if get_file_extension(sys.argv[3]) != 'rlg':
-            raise Exception('second argument must be a file of type rlg')
+        if get_file_extension(sys.argv[2]) not in ['rlg', 'glg']:
+            raise Exception('first argument must be a file of type rlg or glg')
+        if get_file_extension(sys.argv[3]) not in ['rlg', 'glg']:
+            raise Exception('second argument must be a file of type rlg or glg')
         if get_file_extension(sys.argv[4]) != 'dae':
             raise Exception('third argument must be a file of type dae')
         rlgtool.generate_rlg_from_rlg_and_dae(srcrlgpath=sys.argv[2], dstrlgpath=sys.argv[3], daepath=sys.argv[4])

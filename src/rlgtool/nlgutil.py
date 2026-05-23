@@ -31,7 +31,7 @@ class Section:
 
 
 
-def get_section_tree(file):
+def get_section_tree(file, align4=True):
     """Reads a NLG file and returns a tree of its section
 
     Known supported file formats: .rlg .shier .glg
@@ -71,8 +71,9 @@ def get_section_tree(file):
         else:
             file.seek(new_section.end(), 0)
         # align by 4
-        while not file.tell() % 4 == 0:
-            file.seek(1, 1)  # move forward by 1 until you're aligned
+        if align4:
+            while not file.tell() % 4 == 0:
+                file.seek(1, 1)  # move forward by 1 until you're aligned
     return level_one_sections
             
 
@@ -163,3 +164,16 @@ def update_section_size_and_go_to_end(file, section : Section):
     file.seek(section.end(), 0)
     while not file.tell() % 4 == 0:
         file.seek(1, 1)
+
+
+
+
+def section_tree_str(root : Section, level=0) -> str:
+    INDENT = '.   '
+    s = ''
+    s += hex(int.from_bytes(root.type))
+    s += '\n'
+    for section in root.children:
+        s += (INDENT * level)
+        s += section_tree_str(root=section, level=level+1)
+    return s

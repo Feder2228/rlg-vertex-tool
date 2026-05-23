@@ -6,16 +6,20 @@ import numpy as np
 
 
 # SECTION IDENTIFIER CONSTANTS
+SECTION_B001 = b'\xb0\x01'
 SECTION_MATRIX_DATA = b'\xb0\x02'
 SECTION_MODEL_DATA = b'\xb0\x03'
 SECTION_MESH_DATA = b'\xb0\x04'
 SECTION_VERTEX_ATTRIBUTES = b'\xb0\x05'
 SECTION_VERTEX_DATA = b'\xb0\x06'
 SECTION_INDEX_DATA = b'\xb0\x07'
+SECTION_B010 = b'\xb0\x10'  # I think the glg format uses this for bone indices
 SECTION_SKELETON_CONTAINER = b'\xb0\x08'
+SECTION_B009 = b'\xb0\x09'
 SECTION_BONE_MESH_HASHES = b'\xb0\x0b'
 SECTION_BONE_MATRICES = b'\xb0\x0a'
 SECTION_BONE_UNKNOWN = b'\xb0\x0c'
+SECTION_B012 = b'\xb0\x12'
 SECTION_MATERIAL_DATA = b'\xb0\x16'
 
 # SECTION SIZE CONSTANTS
@@ -25,7 +29,7 @@ NUM_MATERIAL_TEXTURES = 6
 MATERIAL_OTHER_DATA_BYTES = MATERIAL_RECORD_SIZE - (8*NUM_MATERIAL_TEXTURES)
 
 
-def read_rlg(rlgfile, root_section, shierpath=None) -> RlgRoot:
+def read_rlg(rlgfile, root_section, shierpath=None, is_glg=False) -> RlgRoot:
     """Read rlg file and return a RlgRoot object
 
     Args:
@@ -45,8 +49,8 @@ def read_rlg(rlgfile, root_section, shierpath=None) -> RlgRoot:
     # Then, read their data
     root = RlgRoot()
     read_matrices(rlgfile, root_section.get_children_of_type(SECTION_MATRIX_DATA)[0], root)
-    read_models(rlgfile, root_section.get_children_of_type(SECTION_MODEL_DATA)[0], root)
-    read_meshes(rlgfile, root_section.get_children_of_type(SECTION_MESH_DATA)[0], root)
+    read_models(rlgfile, root_section.get_children_of_type(SECTION_MODEL_DATA)[0], root, is_glg=is_glg)
+    read_meshes(rlgfile, root_section.get_children_of_type(SECTION_MESH_DATA)[0], root, is_glg=is_glg)
 
     if has_bones:
         if shierpath == None:
@@ -58,9 +62,10 @@ def read_rlg(rlgfile, root_section, shierpath=None) -> RlgRoot:
         read_bone_mesh_hashes(rlgfile, skeleton_container_section.get_children_of_type(SECTION_BONE_MESH_HASHES), root)
 
     read_faces(rlgfile, root_section.get_children_of_type(SECTION_INDEX_DATA)[0], root)
-    read_materials(rlgfile, root_section.get_children_of_type(SECTION_MATERIAL_DATA)[0], root)
-    read_vaps(rlgfile, root_section.get_children_of_type(SECTION_VERTEX_ATTRIBUTES)[0], root)
-    read_vertices(rlgfile, root_section.get_children_of_type(SECTION_VERTEX_DATA)[0], root)
+    if not is_glg:
+        read_materials(rlgfile, root_section.get_children_of_type(SECTION_MATERIAL_DATA)[0], root)
+    read_vaps(rlgfile, root_section.get_children_of_type(SECTION_VERTEX_ATTRIBUTES)[0], root, is_glg=is_glg)
+    read_vertices(rlgfile, root_section.get_children_of_type(SECTION_VERTEX_DATA)[0], root, is_glg=is_glg)
     return root
 
 
@@ -114,7 +119,7 @@ def read_faces(rlgfile, section : nlgutil.Section, root : RlgRoot):
 
 
 
-def read_vertices(rlgfile, section : nlgutil.Section, root : RlgRoot): 
+def read_vertices(rlgfile, section : nlgutil.Section, root : RlgRoot, is_glg=False): 
     """Reads vertices from an rlg file
 
     Mutate each mesh of root by adding vertices to it
@@ -129,7 +134,13 @@ def read_vertices(rlgfile, section : nlgutil.Section, root : RlgRoot):
     """
     for model in root.models:
         for mesh in model.meshes:
-            for k in range(mesh.vertex_count):
+            if is_glg:
+                vap0 = mesh.vaps[0]
+                vap1 = mesh.vaps[1]
+                vertex_count = (vap1.offset - vap0.offset) // vap0.stride
+            else:
+                vertex_count = mesh.vertex_count
+            for k in range(vertex_count):
                 # create the vertex
                 vertex = RlgVertex()
                 mesh.vertices.append(vertex)
@@ -185,7 +196,7 @@ def read_vertices(rlgfile, section : nlgutil.Section, root : RlgRoot):
 
 
 
-def read_vaps(rlgfile, section : nlgutil.Section, root : RlgRoot):  
+def read_vaps(rlgfile, section : nlgutil.Section, root : RlgRoot, is_glg=False):  
     """Reads vertex attribute pointers from an rlg file
 
     Mutates each mesh of root by adding VAPs to it
@@ -200,20 +211,48 @@ def read_vaps(rlgfile, section : nlgutil.Section, root : RlgRoot):
             # go to the location of this meshes' VAPs 
             rlgfile.seek(section.body_location() + mesh.vap_offset, 0) 
             for k in range(mesh.vap_count):
-                vap = RlgVertexAttributePointer(
-                    offset  = int.from_bytes(rlgfile.read(4), 'big'),
-                    flags    = int.from_bytes(rlgfile.read(1), 'big'),
-                    stride  = int.from_bytes(rlgfile.read(1), 'big'),
-                    type  = RlgVAPType(int.from_bytes(rlgfile.read(1), 'big')))
-                padding = int.from_bytes(rlgfile.read(1), 'big')
-                if padding != 0:
-                    print('turns out the eight byte of VAP is not padding')
+
+                if is_glg:
+                    vap = RlgVertexAttributePointer(
+                        offset  = int.from_bytes(rlgfile.read(4), 'big'),
+                        type  = from_glg_vap_type(rlgfile.read(1)),
+                        stride  = int.from_bytes(rlgfile.read(1), 'big'))
+
+                else:
+                    vap = RlgVertexAttributePointer(
+                        offset  = int.from_bytes(rlgfile.read(4), 'big'),
+                        flags    = int.from_bytes(rlgfile.read(1), 'big'),
+                        stride  = int.from_bytes(rlgfile.read(1), 'big'),
+                        type  = RlgVAPType(int.from_bytes(rlgfile.read(1), 'big')))
+                    padding = int.from_bytes(rlgfile.read(1), 'big')
+                    if padding != 0:
+                        print('turns out the eight byte of VAP is not padding')
+
                 mesh.vaps.append(vap)
 
 
 
 
-def read_meshes(rlgfile, section : nlgutil.Section, root : RlgRoot):
+def from_glg_vap_type(type : int) -> RlgVAPType:
+    """Convert glg vap type to rlg vap type
+
+    Args: type
+    """
+    if type == 0:
+        return RlgVAPType.POSITION
+    if type == 1:
+        return RlgVAPType.NORMAL
+    if type == 2:
+        return RlgVAPType.COLOR
+    if type == 3:
+        return RlgVAPType.UV
+    if type == 4:
+        return RlgVAPType.UV  # I don't know what this is
+
+
+
+
+def read_meshes(rlgfile, section : nlgutil.Section, root : RlgRoot, is_glg=False):
     """Read data of meshes from an rlg file object
 
     Mutates root by adding meshes to each of its models
@@ -227,37 +266,63 @@ def read_meshes(rlgfile, section : nlgutil.Section, root : RlgRoot):
     rlgfile.seek(section.body_location(), 0)
     for model in root.models:
         for i in range(model.mesh_count):
-            unknown_data = b''
-            index_offset  = int.from_bytes(rlgfile.read(4), "big")
-            index_format        = int.from_bytes(rlgfile.read(2), "big")
-            index_count         = int.from_bytes(rlgfile.read(2), "big")
-            vertex_count        = int.from_bytes(rlgfile.read(2), "big")
-            unknown_data        += rlgfile.read(1)
-            vap_count           = int.from_bytes(rlgfile.read(1), "big")
-            vap_offset          = int.from_bytes(rlgfile.read(4), "big")
-            material_hash_id    = int.from_bytes(rlgfile.read(4), "big")
-            hash_id             = int.from_bytes(rlgfile.read(4), "big")
-            unknown_data        += rlgfile.read(8)
-            material_offset     = int.from_bytes(rlgfile.read(4), "big")
-            unknown_data        += rlgfile.read(12)
 
-            mesh = RlgMesh(
-                index_offset=index_offset, 
-                index_count=index_count, 
-                index_format=index_format,
-                vertex_count=vertex_count,
-                vap_count=vap_count, 
-                vap_offset=vap_offset,
-                material_hash_id=material_hash_id, 
-                hash_id=hash_id,
-                material_offset=material_offset, 
-                unknown_data=unknown_data)
+            if is_glg:
+
+                mesh_record_size = 0x4A  # placeholder. TODO: change this
+
+                unknown_data = b''
+                unknown_data        += rlgfile.read(4)
+                index_offset        = int.from_bytes(rlgfile.read(4), "big")
+                index_count         = int.from_bytes(rlgfile.read(2), "big")
+                unknown_data        += rlgfile.read(1)
+                vap_count           = int.from_bytes(rlgfile.read(1), "big")
+                vap_offset          = int.from_bytes(rlgfile.read(4), "big")
+                unknown_data        += rlgfile.read(12)
+                material_hash_id    = int.from_bytes(rlgfile.read(4), "big")
+                unknown_data        += rlgfile.read(mesh_record_size-32)
+
+                mesh = RlgMesh(
+                    index_offset=index_offset, 
+                    index_count=index_count, 
+                    vap_count=vap_count, 
+                    vap_offset=vap_offset,
+                    material_hash_id=material_hash_id, 
+                    hash_id=i,
+                    unknown_data=unknown_data)
+
+            else:
+                unknown_data = b''
+                index_offset        = int.from_bytes(rlgfile.read(4), "big")
+                index_format        = int.from_bytes(rlgfile.read(2), "big")
+                index_count         = int.from_bytes(rlgfile.read(2), "big")
+                vertex_count        = int.from_bytes(rlgfile.read(2), "big")
+                unknown_data        += rlgfile.read(1)
+                vap_count           = int.from_bytes(rlgfile.read(1), "big")
+                vap_offset          = int.from_bytes(rlgfile.read(4), "big")
+                material_hash_id    = int.from_bytes(rlgfile.read(4), "big")
+                hash_id             = int.from_bytes(rlgfile.read(4), "big")
+                unknown_data        += rlgfile.read(8)
+                material_offset     = int.from_bytes(rlgfile.read(4), "big")
+                unknown_data        += rlgfile.read(12)
+
+                mesh = RlgMesh(
+                    index_offset=index_offset, 
+                    index_count=index_count, 
+                    index_format=index_format,
+                    vertex_count=vertex_count,
+                    vap_count=vap_count, 
+                    vap_offset=vap_offset,
+                    material_hash_id=material_hash_id, 
+                    hash_id=hash_id,
+                    material_offset=material_offset, 
+                    unknown_data=unknown_data)
             model.meshes.append(mesh)
 
 
 
 
-def read_models(rlgfile, section : nlgutil.Section, root : RlgRoot):
+def read_models(rlgfile, section : nlgutil.Section, root : RlgRoot, is_glg=False):
     """Reads models from an rlg file
 
     Mutates root by adding models to it
@@ -267,16 +332,26 @@ def read_models(rlgfile, section : nlgutil.Section, root : RlgRoot):
         section: object that identifies the section within the file
         root: RlgRoot object to add the RlgModels to
     """
-    MODEL_RECORD_SIZE = 12
     # go to where model data starts
     rlgfile.seek(section.body_location(), 0)
-    model_count = section.size//MODEL_RECORD_SIZE
-    for i in range(model_count):
-        model = RlgModel(
-            hash_id         = int.from_bytes(rlgfile.read(4), "big"),
-            mesh_count      = int.from_bytes(rlgfile.read(4), "big"),
-            unknown_data    = rlgfile.read(4))
-        root.models.append(model)
+    if is_glg:
+        MODEL_RECORD_SIZE = 16
+        model_count = section.size//MODEL_RECORD_SIZE
+        for i in range(model_count):
+            model = RlgModel(
+                mesh_count      = int.from_bytes(rlgfile.read(4), "big"),
+                hash_id         = int.from_bytes(rlgfile.read(4), "big"),
+                unknown_data    = rlgfile.read(8))
+            root.models.append(model)
+    else:
+        MODEL_RECORD_SIZE = 12
+        model_count = section.size//MODEL_RECORD_SIZE
+        for i in range(model_count):
+            model = RlgModel(
+                hash_id         = int.from_bytes(rlgfile.read(4), "big"),
+                mesh_count      = int.from_bytes(rlgfile.read(4), "big"),
+                unknown_data    = rlgfile.read(4))
+            root.models.append(model)
 
 
 
@@ -386,7 +461,7 @@ def read_bone_matrices(rlgfile, section : nlgutil.Section, root : RlgModel, shie
 
 def patch_rlg(srcrlg, dstrlg, new_root : RlgRoot, old_root : RlgRoot,
               root_section : nlgutil.Section,
-              keep_old_indices=True):
+              keep_old_indices=True, is_glg=False):
     """Open rlg file, write to it and save as new rlg file
 
     Args:

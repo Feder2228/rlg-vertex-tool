@@ -147,6 +147,12 @@ def get_all_filenames_of_specified_extension(dir_path : str, extension : str) ->
 
 
 
+def get_file_extension(filepath):
+    return filepath.split( '.' )[ -1 ]
+
+
+
+
 def check_daepath(rlgpath : str) -> str:
     """Convert rlg filepath to a dae filepath
 
