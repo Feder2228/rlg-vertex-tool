@@ -12,8 +12,8 @@ class RlgRoot:
         matrix: a 4x4 transform matrix. We don't know what this is for
         models: a list of models. Usually it's just one
     """
-    def __init__(self, matrix=None, models=[]):
-        self.matrix = matrix
+    def __init__(self, matrices=None, models=[]):
+        self.matrices = matrices
         self.models = models
         if self.models == []:
             self.models = list()

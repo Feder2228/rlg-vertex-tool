@@ -44,7 +44,7 @@ def read_rlg(rlgfile, root_section, shierpath=None) -> RlgRoot:
 
     # Then, read their data
     root = RlgRoot()
-    read_matrix(rlgfile, root_section.get_children_of_type(SECTION_MATRIX_DATA)[0], root)
+    read_matrices(rlgfile, root_section.get_children_of_type(SECTION_MATRIX_DATA)[0], root)
     read_models(rlgfile, root_section.get_children_of_type(SECTION_MODEL_DATA)[0], root)
     read_meshes(rlgfile, root_section.get_children_of_type(SECTION_MESH_DATA)[0], root)
 
@@ -280,10 +280,10 @@ def read_models(rlgfile, section : nlgutil.Section, root : RlgRoot):
 
 
 
-def read_matrix(rlgfile, section : nlgutil.Section, root : RlgRoot):
+def read_matrices(rlgfile, section : nlgutil.Section, root : RlgRoot):
     """Reads the matrix section from an rlg file
 
-    Mutates root by adding the matrix to it
+    Mutates root by adding the matrices to it
 
     Args:
         rlgfile: rlg file object
@@ -291,13 +291,18 @@ def read_matrix(rlgfile, section : nlgutil.Section, root : RlgRoot):
         root: RlgRoot object to add the matrix to
     """
     rlgfile.seek(section.body_location(), 0)
-    matrix = []
-    for i in range(4):
-        matrix_row = []
+    MATRIX_RECORD_SIZE = 0x40
+    matrix_count = section.size // MATERIAL_RECORD_SIZE
+    matrices = []
+    for i in range(matrix_count):
+        matrix = []
         for j in range(4):
-            matrix_row.append(util.bytes_to_float(rlgfile.read(4)))
-        matrix.append(matrix_row)
-    root.matrix = matrix
+            matrix_row = []
+            for k in range(4):
+                matrix_row.append(util.bytes_to_float(rlgfile.read(4)))
+            matrix.append(matrix_row)
+        matrices.append(copy.copy(matrix))
+    root.matrices = matrices
 
 
 
