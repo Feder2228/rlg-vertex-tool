@@ -39,15 +39,14 @@ def get_section_tree(file):
     Args:
         file: the file to read the sections from
     Return:
-        root Section object
+        list of Section objects
     """
     # check size 
     file.seek(0, 2)
     filesize = file.tell()
     file.seek(0, 0)
 
-    # dict of sections
-    root_section = None
+    level_one_sections = []
     section_stack = []
 
     while file.tell() < filesize:
@@ -56,8 +55,8 @@ def get_section_tree(file):
                                 type=file.read(2),
                                 size=int.from_bytes(file.read(4), 'big'),
                                 header_location=file.tell() - 8)
-        if root_section == None:
-            root_section = new_section
+        if len(section_stack) == 0:
+            level_one_sections.append(new_section)
         # pop the stack if we got out of a container section
         while len(section_stack) > 0 and file.tell() >= section_stack[-1].end():
             section_stack.pop()
@@ -74,7 +73,7 @@ def get_section_tree(file):
         # align by 4
         while not file.tell() % 4 == 0:
             file.seek(1, 1)  # move forward by 1 until you're aligned
-    return root_section
+    return level_one_sections
             
 
 

@@ -6,7 +6,6 @@ import numpy as np
 
 
 # SECTION IDENTIFIER CONSTANTS
-SECTION_CONTAINER = b'\xb0\x00'
 SECTION_MATRIX_DATA = b'\xb0\x02'
 SECTION_MODEL_DATA = b'\xb0\x03'
 SECTION_MESH_DATA = b'\xb0\x04'
@@ -26,7 +25,7 @@ NUM_MATERIAL_TEXTURES = 6
 MATERIAL_OTHER_DATA_BYTES = MATERIAL_RECORD_SIZE - (8*NUM_MATERIAL_TEXTURES)
 
 
-def read_rlg(rlgpath : str, shierpath=None) -> RlgRoot:
+def read_rlg(rlgfile, root_section, shierpath=None) -> RlgRoot:
     """Read rlg file and return a RlgRoot object
 
     Args:
@@ -36,9 +35,7 @@ def read_rlg(rlgpath : str, shierpath=None) -> RlgRoot:
     Returns:
         RlgRoot object equivalent of the file
     """
-    rlgfile = open(rlgpath, "rb")
     # First, find the sections...
-    root_section = nlgutil.get_section_tree(rlgfile)
     skeleton_container_sections = root_section.get_children_of_type(SECTION_SKELETON_CONTAINER)
     has_bones = False
     if len(skeleton_container_sections) > 0:
@@ -64,8 +61,6 @@ def read_rlg(rlgpath : str, shierpath=None) -> RlgRoot:
     read_materials(rlgfile, root_section.get_children_of_type(SECTION_MATERIAL_DATA)[0], root)
     read_vaps(rlgfile, root_section.get_children_of_type(SECTION_VERTEX_ATTRIBUTES)[0], root)
     read_vertices(rlgfile, root_section.get_children_of_type(SECTION_VERTEX_DATA)[0], root)
-    
-    rlgfile.close()
     return root
 
 
@@ -375,7 +370,9 @@ def read_bone_matrices(rlgfile, section : nlgutil.Section, root : RlgModel, shie
 
 
 
-def patch_rlg(srcpath : str, dstpath : str, new_root : RlgRoot, keep_old_indices=True):
+def patch_rlg(srcrlg, dstrlg, new_root : RlgRoot, old_root : RlgRoot,
+              root_section : nlgutil.Section,
+              keep_old_indices=True):
     """Open rlg file, write to it and save as new rlg file
 
     Args:
@@ -386,14 +383,8 @@ def patch_rlg(srcpath : str, dstpath : str, new_root : RlgRoot, keep_old_indices
         keep_old_indices: True takes indices from old file.
             False generates indices from the new RlgRoot
     """
-    # get the data of the original rlg file as a rlgroot object
-    old_root = read_rlg(srcpath)
-    srcrlg = open(srcpath, "r+b")
-    # create the destination file and open it
-    dstrlg = open(dstpath, "wb")
 
     dstrlg.seek(0, 0)
-    root_section = nlgutil.get_section_tree(srcrlg)
     nlgutil.write_section_header(rlgfile=dstrlg, section=root_section)
 
     # We sort the new file's meshes to match the original file order. 
@@ -436,9 +427,6 @@ def patch_rlg(srcpath : str, dstpath : str, new_root : RlgRoot, keep_old_indices
 
     # once you're done, update the root section size
     nlgutil.update_section_size_and_go_to_end(file=dstrlg, section=root_section)
-
-    srcrlg.close()
-    dstrlg.close()
 
 
 

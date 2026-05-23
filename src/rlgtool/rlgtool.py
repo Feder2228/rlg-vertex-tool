@@ -1,7 +1,14 @@
-from . import dae as dae
-from . import rlg as rlg
+from . import dae
+from . import rlg
+from . import nlgutil
 from .rlg_data_structures import *
 import copy
+
+
+# SECTION IDENTIFIER CONSTANTS
+SECTION_RLG_ROOT = b'\xb0\x00'
+SECTION_STADIUM_WRAPPER = b'\xb1\x00'
+SECTION_BUN_ROOT = b'\x00\x01'
 
 
 def export_rlg_as_dae(rlgpath, daepath=None, shierpath=None):
@@ -15,13 +22,22 @@ def export_rlg_as_dae(rlgpath, daepath=None, shierpath=None):
     """
     if daepath == None:
         daepath = rlgpath + '.dae' 
-    dae.create_dae(rlg.read_rlg(rlgpath=rlgpath, shierpath=shierpath), daepath, bone_tree_mode=(shierpath!=None))
+
+    # TODO: make a function for this
+    rlgfile = open(rlgpath, 'rb')
+    l1_sections = nlgutil.get_section_tree(file=rlgfile)
+    if l1_sections[0].type == SECTION_RLG_ROOT:
+        section = l1_sections[0]
+    rlgroot = rlg.read_rlg(rlgfile=rlgfile, root_section=section, shierpath=shierpath)
+
+    dae.create_dae(rlgroot=rlgroot, filepath=daepath, bone_tree_mode=(shierpath!=None))
     print('created dae file at {0}'.format(daepath))
+    rlgfile.close()
 
 
 
 
-def generate_rlg_from_rlg_and_dae(srcrlgpath, dstrlgpath, daepath, auto_export=False):
+def generate_rlg_from_rlg_and_dae(srcrlgpath, dstrlgpath, daepath):
     """patch an rlg file using the data found in the provided dae file
 
     Args:
@@ -29,11 +45,28 @@ def generate_rlg_from_rlg_and_dae(srcrlgpath, dstrlgpath, daepath, auto_export=F
         dstrlgpath: path of the new rlg file
         daepath: path of the dae file
     """
-    rlg.patch_rlg(srcpath=srcrlgpath, dstpath=dstrlgpath, new_root=dae.read_dae(daepath), keep_old_indices=False)
+
+    new_rlgroot = dae.read_dae(daepath)
+
+    # get the data of the original rlg file as a rlgroot object
+    srcrlg = open(srcrlgpath, "rb")
+    l1_sections = nlgutil.get_section_tree(file=srcrlg)
+    if l1_sections[0].type == SECTION_RLG_ROOT:
+        section = l1_sections[0]
+    old_rlgroot = rlg.read_rlg(srcrlg, root_section=section)
+
+    # create the destination file and open it
+    dstrlg = open(dstrlgpath, "wb")
+
+    rlg.patch_rlg(srcrlg=srcrlg, 
+                  dstrlg=dstrlg, 
+                  new_root=new_rlgroot, 
+                  old_root=old_rlgroot,
+                  root_section=section,
+                  keep_old_indices=False)
     print('created rlg file at {0}'.format(dstrlgpath))
-    if auto_export:
-        dae.create_dae( rlg.read_rlg(dstrlgpath), daepath)
-        print('created dae file at {0}'.format(daepath))
+    srcrlg.close()
+    dstrlg.close()
 
 
 

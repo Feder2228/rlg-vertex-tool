@@ -6,10 +6,11 @@ from src.rlgtool import rlg
 
 class TestNlgutil(unittest.TestCase):
     def test_get_section_tree(self):
-        rlgfile = open('./tests/test_files/mario.rlg', 'rb')
-        root = nlgutil.get_map_of_sections(rlgfile)
-        print(section_tree(root))
-        self.assertEqual(len(root.get_children_of_type(rlg.SECTION_MESH_DATA)), 1)
+        rlgfile = open('./tests/files_for_testing/original/mario/mario.rlg', 'rb')
+        l1 = nlgutil.get_section_tree(rlgfile)
+        self.assertEqual(len(l1), 1)
+        print(section_tree(l1[0]))
+        self.assertEqual(len(l1[0].get_children_of_type(rlg.SECTION_MESH_DATA)), 1)
 
 
     def test_copy_section(self):
