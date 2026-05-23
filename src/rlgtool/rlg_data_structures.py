@@ -31,11 +31,12 @@ class RlgModel:
         unk0x8: unknown
         meshes: list of RlgMesh object
     """
-    def __init__(self, hash_id=None, mesh_count=None, unk0x8=None, meshes=[], bones=[]):
+    def __init__(self, hash_id=None, mesh_count=None, unknown_data=None,
+                 meshes=[], bones=[]):
         self.hash_id = hash_id
         self.mesh_count = mesh_count
-        self.unk0x8 = unk0x8
         self.meshes = meshes
+        self.unknown_data = unknown_data
         if self.meshes == []:
             self.meshes = list()
         self.bones = bones
@@ -124,26 +125,21 @@ class RlgMesh:
     """
     def __init__(
             self, index_offset=None, index_count=None, index_format=None,
-            vertex_count=None, unk0xA=None, vap_count=None, vap_offset=None,
-            material_hash_id=None, unk0x18=None, unk0x1C=None, hash_id=None,
-            material_offset=None, unk0x24=None, unk0x28=None, unk0x2C=None,
+            vertex_count=None, vap_count=None, vap_offset=None,
+            material_hash_id=None, hash_id=None,
+            material_offset=None, unknown_data=None,
             vaps=[], vertices=[], faces=[], material=None, bones=[]):
         # MeshData
         self.index_offset = index_offset
         self.index_count = index_count
         self.index_format = index_format
         self.vertex_count = vertex_count
-        self.unk0xA = unk0xA  # this is probably material count btw
         self.vap_count = vap_count
         self.vap_offset = vap_offset
         self.material_hash_id = material_hash_id
-        self.unk0x18 = unk0x18
-        self.unk0x1C = unk0x1C
         self.hash_id = hash_id
         self.material_offset = material_offset
-        self.unk0x24 = unk0x24
-        self.unk0x28 = unk0x28
-        self.unk0x2C = unk0x2C
+        self.unknown_data = unknown_data
         # Child objects
         self.vaps = vaps
         if self.vaps == []:

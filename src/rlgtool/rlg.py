@@ -226,22 +226,31 @@ def read_meshes(rlgfile, section : nlgutil.Section, root : RlgRoot):
         rlgfile.seek(section.body_location(), 0)
         mesh_count = section.size//MESH_RECORD_SIZE
         for i in range(mesh_count):
+            unknown_data = b''
+            index_offset  = int.from_bytes(rlgfile.read(4), "big")
+            index_format        = int.from_bytes(rlgfile.read(2), "big")
+            index_count         = int.from_bytes(rlgfile.read(2), "big")
+            vertex_count        = int.from_bytes(rlgfile.read(2), "big")
+            unknown_data        += rlgfile.read(1)
+            vap_count           = int.from_bytes(rlgfile.read(1), "big")
+            vap_offset          = int.from_bytes(rlgfile.read(4), "big")
+            material_hash_id    = int.from_bytes(rlgfile.read(4), "big")
+            hash_id             = int.from_bytes(rlgfile.read(4), "big")
+            unknown_data        += rlgfile.read(8)
+            material_offset     = int.from_bytes(rlgfile.read(4), "big")
+            unknown_data        += rlgfile.read(12)
+
             mesh = RlgMesh(
-                index_offset  = int.from_bytes(rlgfile.read(4), "big"),
-                index_format        = int.from_bytes(rlgfile.read(2), "big"),
-                index_count         = int.from_bytes(rlgfile.read(2), "big"),
-                vertex_count        = int.from_bytes(rlgfile.read(2), "big"),
-                unk0xA              = int.from_bytes(rlgfile.read(1), "big"),
-                vap_count           = int.from_bytes(rlgfile.read(1), "big"),
-                vap_offset          = int.from_bytes(rlgfile.read(4), "big"),
-                material_hash_id    = int.from_bytes(rlgfile.read(4), "big"),
-                hash_id             = int.from_bytes(rlgfile.read(4), "big"),
-                unk0x18             = int.from_bytes(rlgfile.read(4), "big"),
-                unk0x1C             = int.from_bytes(rlgfile.read(4), "big"),
-                material_offset     = int.from_bytes(rlgfile.read(4), "big"),
-                unk0x24             = int.from_bytes(rlgfile.read(4), "big"),
-                unk0x28             = int.from_bytes(rlgfile.read(4), "big"),
-                unk0x2C             = int.from_bytes(rlgfile.read(4), "big"))
+                index_offset=index_offset, 
+                index_count=index_count, 
+                index_format=index_format,
+                vertex_count=vertex_count,
+                vap_count=vap_count, 
+                vap_offset=vap_offset,
+                material_hash_id=material_hash_id, 
+                hash_id=hash_id,
+                material_offset=material_offset, 
+                unknown_data=unknown_data)
             model.meshes.append(mesh)
 
 
@@ -263,9 +272,9 @@ def read_models(rlgfile, section : nlgutil.Section, root : RlgRoot):
     model_count = section.size//MODEL_RECORD_SIZE
     for i in range(model_count):
         model = RlgModel(
-            hash_id     = int.from_bytes(rlgfile.read(4), "big"),
-            mesh_count  = int.from_bytes(rlgfile.read(4), "big"),
-            unk0x8      = int.from_bytes(rlgfile.read(4), "big"))
+            hash_id         = int.from_bytes(rlgfile.read(4), "big"),
+            mesh_count      = int.from_bytes(rlgfile.read(4), "big"),
+            unknown_data    = rlgfile.read(4))
         root.models.append(model)
 
 
@@ -609,17 +618,14 @@ def write_meshes(rlgfile, new_model : RlgModel, old_model : RlgModel, keep_old_i
         rlgfile.write(old_mesh.index_format.to_bytes(2, 'big'))
         rlgfile.write(index_count.to_bytes(2, 'big'))
         rlgfile.write(len(new_mesh.vertices).to_bytes(2, 'big'))
-        rlgfile.write(old_mesh.unk0xA.to_bytes(1, 'big'))
+        rlgfile.write(old_mesh.unknown_data[0:1])
         rlgfile.write(len(new_mesh.vaps).to_bytes(1, 'big'))
         rlgfile.write(vap_offset.to_bytes(4, 'big'))
         rlgfile.write(old_mesh.material_hash_id.to_bytes(4, 'big'))
         rlgfile.write(new_mesh.hash_id.to_bytes(4, 'big'))
-        rlgfile.write(old_mesh.unk0x18.to_bytes(4, 'big'))
-        rlgfile.write(old_mesh.unk0x1C.to_bytes(4, 'big'))
+        rlgfile.write(old_mesh.unknown_data[1:9])
         rlgfile.write(old_mesh.material_offset.to_bytes(4, 'big'))
-        rlgfile.write(old_mesh.unk0x24.to_bytes(4, 'big'))
-        rlgfile.write(old_mesh.unk0x28.to_bytes(4, 'big'))
-        rlgfile.write(old_mesh.unk0x2C.to_bytes(4, 'big'))
+        rlgfile.write(old_mesh.unknown_data[9:21])
         # increment the offsets for next iteration
         index_offset += index_count*INDEX_RECORD_SIZE
         vap_offset += len(new_mesh.vaps)*VAP_RECORD_SIZE
