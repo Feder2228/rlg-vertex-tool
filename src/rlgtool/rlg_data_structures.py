@@ -292,25 +292,28 @@ class RlgMesh:
                     ]))
 
     def encode_indices(self) -> list[int]:
-        """Convert this meshe's faces into a list of indices formatted as
-        in an RLG file
+        """Take this meshe's list of faces as input and return a list of
+        indices that are formatted the same way as they are in a RLG file.
 
-        The method will return a list of indices. The meshe's faces will
-        not be mutated
+        The meshe's faces will not be mutated.
                 
         Return:
             list of ints
         """
         indices = []
-        for face in self.faces:
-            # initial padding (add next face's first index an extra time)
-            if len(indices) > 0:
-                indices.append(face.indices[0])
-            # add the actual faces indices
-            indices = indices + face.indices
-            # final padding (repeat last index twice)
-            indices.append(indices[-1])
-            indices.append(indices[-1])
+        ALGORITHM = 0
+        if ALGORITHM == 0:
+            for face in self.faces:
+                # initial padding (add next face's first index an extra time)
+                if len(indices) > 0:
+                    indices.append(face.indices[0])
+                # add the actual faces indices
+                indices = indices + face.indices
+                # final padding (repeat last index twice)
+                indices.append(indices[-1])
+                indices.append(indices[-1])
+        elif ALGORITHM == 1:
+            
         return indices
 
 
