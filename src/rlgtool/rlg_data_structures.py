@@ -293,7 +293,18 @@ class RlgMesh:
 
     def encode_indices(self) -> list[int]:
         """Take this meshe's list of faces as input and return a list of
-        indices that are formatted the same way as they are in a RLG file.
+        indices that are formatted the same way as they are in a RLG file...
+
+        The returned list of indices will look like this
+        [a,b,c,d,e,f,...] where each letter is an index.
+        a,b,c form the first face,
+        b,c,d form the second face,
+        and so on...
+        Faces with two identical indices are skipped, so for instance, if
+        bcd is 1,2,2, it does not count as a face.
+        Normals are counterclockwise for faces that start at an even
+        index (i.e. abc, cde, which start at indices 0,2 respecively) and
+        are clockwise for faces that start with an odd index.
 
         The meshe's faces will not be mutated.
                 
@@ -301,8 +312,8 @@ class RlgMesh:
             list of ints
         """
         indices = []
-        ALGORITHM = 0
-        if ALGORITHM == 0:
+        ALGORITHM = 1
+        if ALGORITHM == 0:  # naive algo
             for face in self.faces:
                 # initial padding (add next face's first index an extra time)
                 if len(indices) > 0:
@@ -313,8 +324,40 @@ class RlgMesh:
                 indices.append(indices[-1])
                 indices.append(indices[-1])
         elif ALGORITHM == 1:
-            
+            self.sort_faces()
+            for i, face in enumerate(self.faces):
+                last_indices = indices[-3:] if len(indices) > 2 else []
+                if i != len(self.faces)-1:
+                    shared_indices = self._get_shared_face_indices(face, self.faces[i+1])
+                    if len(shared_indices) > 0:
+                        face.shift_indices_to_end(shared_indices)
+
+                # final padding (repeat last index twice)
+                indices.append(indices[-1])
+                indices.append(indices[-1])
+
+
         return indices
+
+    def _get_shared_face_indices(face1, face2):
+        a = []
+        for i1 in face1.indices:
+            if i1 in face2:
+                a.append(i1)
+        return i1
+
+
+    def sort_faces():
+        """Sort self.faces, by making it so for each i, face i and face i+1
+        have (if possible) at least one vertex in common
+        
+        The list elements will be organized like this:
+        [X,X,X,X,Y,Y,Z,Z,Z] where each letter represents the face's cluster.
+        So the Xs in this example are a polygon that is disconnected from the 
+
+        The self.faces attribute is mutated. No value is returned.
+        """
+        pass  # temp
 
 
 
@@ -390,12 +433,31 @@ class RlgVertex:
 
 
 class RlgFace:
-    """A face of a RlgMesh object 
+    """A face (triangle) of a RlgMesh object 
 
-    indices: list of ints. The face indices
+    indices: list of ints. The face indices. length must be 3.
     """
     def __init__(self, indices=list()):
         self.indices = indices
+
+    def shift_indices_to_end(self, target_indices):
+        """Shift the face indices to have the 
+
+        """
+        if len(target_indices) not in (1,2):
+            raise Exception("invalid list of target indices. List of length 1 or 2 expected")
+        for i in range(3):
+            self.indices = self.indices[1:] + self.indices[0]
+            is_this_fine = True
+            for j in target_indices:
+                if target_indices not in self.indices[-len(target_indices):]:
+                    is_this_fine = False
+                    break
+            if is_this_fine:
+                return
+            else:
+                continue
+        raise Exception("couldn't find the indices {0} in {1}".format(target_indices, self.indices))
 
 
 
