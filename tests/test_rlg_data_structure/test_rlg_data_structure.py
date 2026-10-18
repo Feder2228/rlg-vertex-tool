@@ -260,7 +260,18 @@ class TestRlgDataStructures(unittest.TestCase):
         self.assertEqual(face.indices, [2,0,1])
         face.shift_indices_to_end([0])
         self.assertEqual(face.indices, [1,2,0])
-        # should this actually work like this:
+        # TODO: should this actually work like this:
         face.shift_indices_to_end([1,0])
         self.assertEqual(face.indices, [2,0,1])
         # or should the argument order matter?
+
+
+
+    def test_get_shared_face_indices(self):
+        face1 = RlgFace([0,1,2])
+        face2 = RlgFace([0,1,2])
+        face3 = RlgFace([2,3,4])
+        face4 = RlgFace([1,1,2])
+        face5 = RlgFace([1,1,2])
+        self.assertEqual(face1.get_shared_face_indices(face2), [0,1,2])
+        self.assertEqual(face1.get_shared_face_indices(face3), [2])

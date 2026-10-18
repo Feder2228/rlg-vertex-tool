@@ -312,7 +312,7 @@ class RlgMesh:
             list of ints
         """
         indices = []
-        ALGORITHM = 1
+        ALGORITHM = 0
         if ALGORITHM == 0:  # naive algo
             for face in self.faces:
                 # initial padding (add next face's first index an extra time)
@@ -329,7 +329,7 @@ class RlgMesh:
             for i, face in enumerate(self.faces):
                 last_indices = indices[-3:] if len(indices) > 2 else []
                 if i != len(self.faces)-1:
-                    shared_indices = self._get_shared_face_indices(face, self.faces[i+1])
+                    shared_indices = face.get_shared_face_indices(self.faces[i+1])
                     if len(shared_indices) > 0:
                         face.shift_indices_to_end(shared_indices)
 
@@ -339,12 +339,7 @@ class RlgMesh:
 
         return indices
 
-    def _get_shared_face_indices(face1, face2):
-        a = []
-        for i1 in face1.indices:
-            if i1 in face2:
-                a.append(i1)
-        return i1
+
 
 
     def sort_faces():
@@ -470,7 +465,19 @@ class RlgFace:
                 return
         raise Exception("couldn't find the indices {0} in {1}".format(target_indices, self.indices))
 
+    def get_shared_face_indices(self, face2):
+        """Return a list of the indices that are shared across the two faces.
+        """
+        a = []
+        for i1 in self.indices:
+            if i1 in face2:
+                a.append(i1)
+        return i1
 
+    def flip(self):
+        """Flip normals by swapping 2 indices
+        """
+        self.indices[0], self.indices[1] = self.indices[1], self.indices[0]
 
 
 class RlgMaterial:
