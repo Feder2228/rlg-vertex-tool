@@ -96,7 +96,7 @@ def index_compression_test(source_rlg_path):
     selected_index_count = 0
     for model in rlgroot.models:
         for mesh in model.meshes:
-            selected_index_count += len(mesh.encode_indices(algorithm=0))
+            selected_index_count += len(mesh.encode_indices(algorithm=1))
     # Calculate percentages
     original_percent = 100*original_index_count/naive_index_count
     selected_percent = 100*selected_index_count/naive_index_count

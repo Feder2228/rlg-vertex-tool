@@ -291,7 +291,7 @@ class RlgMesh:
                         indices[i+2]
                     ]))
 
-    def encode_indices(self, algorithm=0) -> list[int]:
+    def encode_indices(self, algorithm=1) -> list[int]:
         """Take this meshe's list of faces as input and return a list of
         indices that are formatted the same way as they are in a RLG file...
 
@@ -314,7 +314,7 @@ class RlgMesh:
         indices = []
         if algorithm == 0:  # naive algo
             for face in self.faces:
-                # initial padding (add next face's first index an extra time)
+                # initial padding (add current face's first index an extra time)
                 if len(indices) > 0:
                     indices.append(face.indices[0])
                 # add the actual faces indices
@@ -324,21 +324,67 @@ class RlgMesh:
                 indices.append(indices[-1])
 
         elif algorithm == 1:
-            self.sort_faces()
+            # self.sort_faces()
+            last_face_has_index_in_common = False
             for i, face in enumerate(self.faces):
-                last_indices = indices[-3:] if len(indices) > 2 else []
+                # last_indices = indices[-3:] if len(indices) > 2 else []
+                # STEP 2: FACE CONTENT AND FINAL PADDING
                 if i != len(self.faces)-1:
+                    # Attempt to find indices that face (i) and face (i+1) have in common
                     shared_indices = face.get_shared_face_indices(self.faces[i+1])
-                    if len(shared_indices) > 0:
-                        face.shift_indices_to_end(shared_indices)
-
-                # final padding (repeat last index twice)
-                indices.append(indices[-1])
-                indices.append(indices[-1])
+                if i != len(self.faces)-1 and \
+                    len(shared_indices) == 1 and \
+                    not last_face_has_index_in_common:
+                    """ 
+                    CASE 1:
+                    You find one index in common, rotate face (i)'s and face (i+1)'s
+                    to make that index be at the start of (i) and the end of (i+1).
+                    Face (i+1) must NOT be rotated again in future iterations.
+                    Because of that, this case cannot be applied on two consecutive iterations.
+                    """
+                    face.shift_indices_to_end(shared_indices)
+                    # Initial padding
+                    if len(indices) > 0 and not last_face_has_index_in_common:
+                        indices.append(face.indices[0])
+                    # Face
+                    indices = indices + face.indices
+                    self.faces[i+1].shift_indices_to_start(shared_indices)
+                    last_face_has_index_in_common = True
+                    # Just need one index for the final padding
+                    indices.append(indices[-1])
+                elif i != len(self.faces)-1 and \
+                    last_face_has_index_in_common and \
+                    face.indices[-1] in self.faces[i+1].indices:
+                    """ 
+                    CASE 2:
+                    Similar to case 1, except that Face (i) cannot be rotated, so we only look
+                    at its last index and try to find a common index with face (i+1)
+                    """
+                    # Initial padding
+                    if len(indices) > 0 and not last_face_has_index_in_common:
+                        indices.append(face.indices[0])
+                    # Face
+                    indices = indices + face.indices
+                    last_face_has_index_in_common = True
+                    self.faces[i+1].shift_indices_to_start([face.indices[-1]])
+                    # Just need one index for the final padding
+                    indices.append(indices[-1])
+                else:
+                    """ 
+                    DEFAULT CASE:
+                    no optimization is possible
+                    """
+                    # Initial padding
+                    if len(indices) > 0 and not last_face_has_index_in_common:
+                        indices.append(face.indices[0])
+                    # Face
+                    indices = indices + face.indices
+                    # final padding (repeat last index twice)
+                    indices.append(indices[-1])
+                    indices.append(indices[-1])
+                    last_face_has_index_in_common = False
 
         return indices
-
-
 
 
     def sort_faces():
@@ -454,7 +500,7 @@ class RlgFace:
         if len(target_indices) not in (1,2):
             raise Exception("invalid list of target indices. List of length 1 or 2 expected")
         for i in range(3):
-            self.indices = self.indices[1:] + [self.indices[0]]
+            self.indices = self.indices[1:] + [self.indices[0]]  # rotate the indices
             is_this_fine = True
             for j, target_index in enumerate(target_indices):
                 if target_index not in self.indices[-len(target_indices):]:
@@ -464,14 +510,44 @@ class RlgFace:
                 return
         raise Exception("couldn't find the indices {0} in {1}".format(target_indices, self.indices))
 
+    def shift_indices_to_start(self, target_indices):
+            """Rotate the face indices in a way so that the indices that match
+            one of the values in the target_indices list go to the start. 
+            Order of the face's indices must be preserved.
+    
+            For instance, if self.indices = [0,1,2]
+            self.shift_indices_to_end([1]) will return [2,0,1]
+            self.shift_indices_to_end([0]) will return [1,2,0]
+            self.shift_indices_to_end([1,0]) will return [2,0,1]
+            
+            This operation is done in-place. No return value.
+    
+            Args:
+                target_indices, list of indices.
+                    -must have length of 1 or 2
+                    -each of its element must be also an element of self.indices
+            """
+            if len(target_indices) not in (1,2):
+                raise Exception("invalid list of target indices. List of length 1 or 2 expected")
+            for i in range(3):
+                self.indices = self.indices[1:] + [self.indices[0]]  # rotate the indices
+                is_this_fine = True
+                for j, target_index in enumerate(target_indices):
+                    if target_index not in self.indices[:len(target_indices)]:
+                        is_this_fine = False
+                        break
+                if is_this_fine:
+                    return
+            raise Exception("couldn't find the indices {0} in {1}".format(target_indices, self.indices))
+
     def get_shared_face_indices(self, face2):
         """Return a list of the indices that are shared across the two faces.
         """
         a = []
         for i1 in self.indices:
-            if i1 in face2:
+            if i1 in face2.indices:
                 a.append(i1)
-        return i1
+        return a
 
     def flip(self):
         """Flip normals by swapping 2 indices

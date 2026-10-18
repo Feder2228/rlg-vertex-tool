@@ -209,7 +209,7 @@ class TestRlgDataStructures(unittest.TestCase):
 
 
 
-    def test_encode_indices(self):
+    def test_encode_indices_naive(self):
         """
         Test that the indices are encoded correctly
         """
@@ -253,6 +253,31 @@ class TestRlgDataStructures(unittest.TestCase):
 
 
 
+    def test_encode_indices_1(self):
+        mesh = RlgMesh()
+        face_indices = [
+            [0,1,2],
+            [0,5,4],
+            [1,2,6],
+            [1,6,5],
+            [2,3,7],
+        ]
+        for f in face_indices:
+            mesh.faces.append(RlgFace(indices=f))
+
+        correct_indices = [
+            1,2,0,0,0,5,4,4
+                            ]
+        
+        indices = mesh.encode_indices()   
+
+        self.assertEqual(len(indices), len(correct_indices))
+        print(indices)
+        for i in range(len(correct_indices)):
+            self.assertEqual(indices[i], correct_indices[i])
+        
+
+
 
     def test_shift_indices_to_end(self):
         face = RlgFace([0,1,2])
@@ -266,6 +291,22 @@ class TestRlgDataStructures(unittest.TestCase):
         # or should the argument order matter?
 
 
+    def test_shift_indices_to_start(self):
+        face = RlgFace([0,1,2])
+        face.shift_indices_to_start([2])
+        self.assertEqual(face.indices, [2,0,1])
+        face.shift_indices_to_start([2])
+        self.assertNotEqual(face.indices, [0,1,2])
+        face.shift_indices_to_start([1])
+        self.assertEqual(face.indices, [1,2,0])
+        face.shift_indices_to_start([0])
+        self.assertEqual(face.indices, [0,1,2])
+        # TODO: should this actually work like this:
+        face.shift_indices_to_start([1,0])
+        self.assertEqual(face.indices, [0,1,2])
+        # or should the argument order matter?
+
+
 
     def test_get_shared_face_indices(self):
         face1 = RlgFace([0,1,2])
@@ -275,3 +316,9 @@ class TestRlgDataStructures(unittest.TestCase):
         face5 = RlgFace([1,1,2])
         self.assertEqual(face1.get_shared_face_indices(face2), [0,1,2])
         self.assertEqual(face1.get_shared_face_indices(face3), [2])
+
+
+    def test_flip(self):
+        face1 = RlgFace([0,1,2])
+        face1.flip()
+        self.assertEqual(face1.indices, [1,0,2])

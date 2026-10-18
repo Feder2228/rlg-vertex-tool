@@ -389,7 +389,7 @@ def write_section_library_geometries(root : XmlNode, rlgroot : RlgRoot, filename
             # triangles -> p (array of indices)
             p = triangles.append_child(XmlNode('p', content=''))
             for tri in rlgmesh.faces:
-                util.adjust_normals_for_dae(tri, rlgmesh)
+                # util.adjust_normals_for_dae(tri, rlgmesh)
                 for index in tri.indices:
                     p.content += str(index) + ' '  # vertex position index
                     p.content += str(index) + ' '  # vertex normal index
