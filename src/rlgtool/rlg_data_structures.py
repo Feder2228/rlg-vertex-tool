@@ -333,7 +333,7 @@ class RlgMesh:
                     # Attempt to find indices that face (i) and face (i+1) have in common
                     shared_indices = face.get_shared_face_indices(self.faces[i+1])
                 if i != len(self.faces)-1 and \
-                    len(shared_indices) == 1 and \
+                    len(shared_indices) >= 1 and \
                     not last_face_has_index_in_common:
                     """ 
                     CASE 1:
@@ -342,13 +342,13 @@ class RlgMesh:
                     Face (i+1) must NOT be rotated again in future iterations.
                     Because of that, this case cannot be applied on two consecutive iterations.
                     """
-                    face.shift_indices_to_end(shared_indices)
+                    face.shift_index_to_end(shared_indices[0])
                     # Initial padding
                     if len(indices) > 0 and not last_face_has_index_in_common:
                         indices.append(face.indices[0])
                     # Face
                     indices = indices + face.indices
-                    self.faces[i+1].shift_indices_to_start(shared_indices)
+                    self.faces[i+1].shift_index_to_start(shared_indices[0])
                     last_face_has_index_in_common = True
                     # Just need one index for the final padding
                     indices.append(indices[-1])
@@ -366,7 +366,7 @@ class RlgMesh:
                     # Face
                     indices = indices + face.indices
                     last_face_has_index_in_common = True
-                    self.faces[i+1].shift_indices_to_start([face.indices[-1]])
+                    self.faces[i+1].shift_index_to_start(face.indices[-1])
                     # Just need one index for the final padding
                     indices.append(indices[-1])
                 else:
@@ -480,65 +480,45 @@ class RlgFace:
     def __init__(self, indices=list()):
         self.indices = indices
 
-    def shift_indices_to_end(self, target_indices):
+    def shift_index_to_end(self, target_index):
         """Rotate the face indices in a way so that the indices that match
         one of the values in the target_indices list go to the end. 
         Order of the face's indices must be preserved.
 
         For instance, if self.indices = [0,1,2]
-        self.shift_indices_to_end([1]) will return [2,0,1]
-        self.shift_indices_to_end([0]) will return [1,2,0]
-        self.shift_indices_to_end([1,0]) will return [2,0,1]
+        self.shift_index_to_end(1) will return [2,0,1]
+        self.shift_index_to_end(0) will return [1,2,0]
         
         This operation is done in-place. No return value.
 
         Args:
-            target_indices, list of indices.
-                -must have length of 1 or 2
-                -each of its element must be also an element of self.indices
+            target_index(int)
         """
-        if len(target_indices) not in (1,2):
-            raise Exception("invalid list of target indices. List of length 1 or 2 expected")
         for i in range(3):
             self.indices = self.indices[1:] + [self.indices[0]]  # rotate the indices
-            is_this_fine = True
-            for j, target_index in enumerate(target_indices):
-                if target_index not in self.indices[-len(target_indices):]:
-                    is_this_fine = False
-                    break
-            if is_this_fine:
+            if target_index == self.indices[-1]:
                 return
-        raise Exception("couldn't find the indices {0} in {1}".format(target_indices, self.indices))
+        raise Exception("couldn't find the indices {0} in {1}".format(target_index, self.indices))
 
-    def shift_indices_to_start(self, target_indices):
-            """Rotate the face indices in a way so that the indices that match
-            one of the values in the target_indices list go to the start. 
-            Order of the face's indices must be preserved.
-    
-            For instance, if self.indices = [0,1,2]
-            self.shift_indices_to_end([1]) will return [2,0,1]
-            self.shift_indices_to_end([0]) will return [1,2,0]
-            self.shift_indices_to_end([1,0]) will return [2,0,1]
-            
-            This operation is done in-place. No return value.
-    
-            Args:
-                target_indices, list of indices.
-                    -must have length of 1 or 2
-                    -each of its element must be also an element of self.indices
-            """
-            if len(target_indices) not in (1,2):
-                raise Exception("invalid list of target indices. List of length 1 or 2 expected")
-            for i in range(3):
-                self.indices = self.indices[1:] + [self.indices[0]]  # rotate the indices
-                is_this_fine = True
-                for j, target_index in enumerate(target_indices):
-                    if target_index not in self.indices[:len(target_indices)]:
-                        is_this_fine = False
-                        break
-                if is_this_fine:
-                    return
-            raise Exception("couldn't find the indices {0} in {1}".format(target_indices, self.indices))
+    def shift_index_to_start(self, target_index):
+        """Rotate the face indices in a way so that the indices that match
+        one of the values in the target_indices list go to the start. 
+        Order of the face's indices must be preserved.
+
+        For instance, if self.indices = [0,1,2]
+        self.shift_index_to_end(1) will return [2,0,1]
+        self.shift_index_to_end(0) will return [1,2,0]
+        
+        This operation is done in-place. No return value.
+
+        Args:
+            target_index(int)
+        """
+        for i in range(3):
+            self.indices = self.indices[1:] + [self.indices[0]]  # rotate the indices
+            if target_index == self.indices[0]:
+                return
+        raise Exception("couldn't find the indices {0} in {1}".format(target_index, self.indices))
 
     def get_shared_face_indices(self, face2):
         """Return a list of the indices that are shared across the two faces.

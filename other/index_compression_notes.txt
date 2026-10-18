@@ -20,3 +20,13 @@ could totally  @@@@@@@@@@@  remove some numbers here. NO need to have five times
 0096004A 00A200A2 00A20090 00900091  008F008F 008F008F 008F0091 00920092
 0092009A 009A009B 00990099 00990099  0099009B 009C009C 009C0078 00780079
 00770077 00770077 00770079 007A007A  007A0016 00160017 00150015 00150015
+
+
+
+Faces of both (in order):
+70 6E 6F
+9D 14 13
+95 12 14
+14 12 13  
+12 13 9E  <- This is flipped btw. Original face is 13 12 9E and can be compressed by just appending 9E to previous face
+A1 4B 96
