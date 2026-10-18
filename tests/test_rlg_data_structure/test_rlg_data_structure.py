@@ -249,4 +249,18 @@ class TestRlgDataStructures(unittest.TestCase):
 
         self.assertEqual(len(indices), len(correct_indices))
         for i in range(len(correct_indices)):
-            self.assertEqual(indices[i], correct_indices[i]),
+            self.assertEqual(indices[i], correct_indices[i])
+
+
+
+
+    def test_shift_indices_to_end(self):
+        face = RlgFace([0,1,2])
+        face.shift_indices_to_end([1])
+        self.assertEqual(face.indices, [2,0,1])
+        face.shift_indices_to_end([0])
+        self.assertEqual(face.indices, [1,2,0])
+        # should this actually work like this:
+        face.shift_indices_to_end([1,0])
+        self.assertEqual(face.indices, [2,0,1])
+        # or should the argument order matter?

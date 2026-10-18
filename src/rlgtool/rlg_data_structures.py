@@ -323,6 +323,7 @@ class RlgMesh:
                 # final padding (repeat last index twice)
                 indices.append(indices[-1])
                 indices.append(indices[-1])
+
         elif ALGORITHM == 1:
             self.sort_faces()
             for i, face in enumerate(self.faces):
@@ -335,7 +336,6 @@ class RlgMesh:
                 # final padding (repeat last index twice)
                 indices.append(indices[-1])
                 indices.append(indices[-1])
-
 
         return indices
 
@@ -441,22 +441,33 @@ class RlgFace:
         self.indices = indices
 
     def shift_indices_to_end(self, target_indices):
-        """Shift the face indices to have the 
+        """Rotate the face indices in a way so that the indices that match
+        one of the values in the target_indices list go to the end. 
+        Order of the face's indices must be preserved.
 
+        For instance, if self.indices = [0,1,2]
+        self.shift_indices_to_end([1]) will return [2,0,1]
+        self.shift_indices_to_end([0]) will return [1,2,0]
+        self.shift_indices_to_end([1,0]) will return [2,0,1]
+        
+        This operation is done in-place. No return value.
+
+        Args:
+            target_indices, list of indices.
+                -must have length of 1 or 2
+                -each of its element must be also an element of self.indices
         """
         if len(target_indices) not in (1,2):
             raise Exception("invalid list of target indices. List of length 1 or 2 expected")
         for i in range(3):
-            self.indices = self.indices[1:] + self.indices[0]
+            self.indices = self.indices[1:] + [self.indices[0]]
             is_this_fine = True
-            for j in target_indices:
-                if target_indices not in self.indices[-len(target_indices):]:
+            for j, target_index in enumerate(target_indices):
+                if target_index not in self.indices[-len(target_indices):]:
                     is_this_fine = False
                     break
             if is_this_fine:
                 return
-            else:
-                continue
         raise Exception("couldn't find the indices {0} in {1}".format(target_indices, self.indices))
 
 
