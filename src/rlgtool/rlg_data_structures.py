@@ -291,7 +291,7 @@ class RlgMesh:
                         indices[i+2]
                     ]))
 
-    def encode_indices(self) -> list[int]:
+    def encode_indices(self, algorithm=0) -> list[int]:
         """Take this meshe's list of faces as input and return a list of
         indices that are formatted the same way as they are in a RLG file...
 
@@ -312,8 +312,7 @@ class RlgMesh:
             list of ints
         """
         indices = []
-        ALGORITHM = 0
-        if ALGORITHM == 0:  # naive algo
+        if algorithm == 0:  # naive algo
             for face in self.faces:
                 # initial padding (add next face's first index an extra time)
                 if len(indices) > 0:
@@ -324,7 +323,7 @@ class RlgMesh:
                 indices.append(indices[-1])
                 indices.append(indices[-1])
 
-        elif ALGORITHM == 1:
+        elif algorithm == 1:
             self.sort_faces()
             for i, face in enumerate(self.faces):
                 last_indices = indices[-3:] if len(indices) > 2 else []

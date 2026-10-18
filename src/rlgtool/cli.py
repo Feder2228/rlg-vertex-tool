@@ -1,7 +1,5 @@
 from . import rlgtool as rlgtool
-from . import nlgutil
 import sys
-import os
 
 
 # PROMPT STRINGS
@@ -20,6 +18,7 @@ COMMAND_DECSHIER = ['decshier', 'ds']
 COMMAND_PATCH = ['patch']
 COMMAND_TRI = ['tri']
 COMMAND_CUBE = ['cube']
+COMMAND_INDEX_COMPRESSION_TEST = ['ict']
 
 
 def __main__():
@@ -50,6 +49,9 @@ def __main__():
 
     elif(sys.argv[1] in COMMAND_CUBE):
         rlgtool.cube(source_rlg_path=sys.argv[2], destination_rlg_path=sys.argv[3])
+
+    elif(sys.argv[1] in COMMAND_INDEX_COMPRESSION_TEST):
+        rlgtool.index_compression_test(source_rlg_path=sys.argv[2])
 
     else:
         print('unknown command')

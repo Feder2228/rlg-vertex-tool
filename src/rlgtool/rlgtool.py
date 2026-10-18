@@ -79,6 +79,34 @@ def generate_rlg_from_rlg_and_dae(srcrlgpath, dstrlgpath, daepath):
 
 
 
+def index_compression_test(source_rlg_path):
+    rlgfile = open(source_rlg_path, 'rb')
+    section_tree_roots = nlgutil.get_section_tree(rlgfile, True)
+    rlgroot = rlg.read_rlg(rlgfile, section_tree_roots[0])
+
+    # Original
+    rlgfile.seek(section_tree_roots[0].get_children_of_type(rlg.SECTION_INDEX_DATA)[0].header_location+4)
+    original_index_count = int.from_bytes(rlgfile.read(4), 'big')//2  # Divide by 2 cause each index is two bytes long
+    # Naive algorithm
+    naive_index_count = 0
+    for model in rlgroot.models:
+        for mesh in model.meshes:
+            naive_index_count += len(mesh.encode_indices(algorithm=0))
+    # Selected algorithm
+    selected_index_count = 0
+    for model in rlgroot.models:
+        for mesh in model.meshes:
+            selected_index_count += len(mesh.encode_indices(algorithm=0))
+    # Calculate percentages
+    original_percent = 100*original_index_count/naive_index_count
+    selected_percent = 100*selected_index_count/naive_index_count
+    print('''Original index count: {0} ({1}%)\n
+Index count with naive algorithm: {2} (100%)\n
+Index count with selected algorithm: {3} ({4}%)\n
+'''.format(original_index_count, original_percent, naive_index_count,
+        selected_index_count, selected_percent))
+
+
 
 def triangle(source_rlg_path : str, destination_rlg_path : str):
     """Replace the vertices and faces of the provided rlg file and turn
