@@ -291,7 +291,7 @@ class RlgMesh:
                         indices[i+2]
                     ]))
 
-    def encode_indices(self, algorithm=1) -> list[int]:
+    def encode_indices(self, algorithm=2) -> list[int]:
         """Take this meshe's list of faces as input and return a list of
         indices that are formatted the same way as they are in a RLG file...
 
@@ -323,7 +323,7 @@ class RlgMesh:
                 indices.append(indices[-1])
                 indices.append(indices[-1])
 
-        elif algorithm == 1:
+        elif algorithm in (1,2):
             # self.sort_faces()
             last_face_has_index_in_common = False
             for i, face in enumerate(self.faces):
@@ -332,8 +332,9 @@ class RlgMesh:
                 if i != len(self.faces)-1:
                     # Attempt to find indices that face (i) and face (i+1) have in common
                     shared_indices = face.get_shared_face_indices(self.faces[i+1])
+
                 if i != len(self.faces)-1 and \
-                    len(shared_indices) >= 1 and \
+                    (len(shared_indices) == 1 or (len(shared_indices) >= 1 and algorithm==2)) and \
                     not last_face_has_index_in_common:
                     """ 
                     CASE 1:
@@ -342,6 +343,8 @@ class RlgMesh:
                     Face (i+1) must NOT be rotated again in future iterations.
                     Because of that, this case cannot be applied on two consecutive iterations.
                     """
+                    if len(shared_indices) == 2:
+                        pass
                     face.shift_index_to_end(shared_indices[0])
                     # Initial padding
                     if len(indices) > 0 and not last_face_has_index_in_common:

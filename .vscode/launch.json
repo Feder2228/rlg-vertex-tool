@@ -23,6 +23,16 @@
                 "./tests/files_for_testing/tmp/mario.rlg",
                 "./tests/files_for_testing/correct_dae/mario.rlg.dae",
             ]
+        },
+        {
+            "name": "index_test",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.rlgtool.cli",
+            "args": [
+                "ict",
+                "./tests/files_for_testing/original/mario/mario.rlg",
+            ]
         }
     ]
 }
