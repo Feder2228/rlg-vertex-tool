@@ -4,6 +4,7 @@ from . import nlgutil
 from . import util
 from .rlg_data_structures import *
 import copy
+import difflib
 
 
 # SECTION IDENTIFIER CONSTANTS
@@ -93,17 +94,17 @@ def index_compression_test(source_rlg_path):
         for mesh in model.meshes:
             naive_index_count += len(mesh.encode_indices(algorithm=0))
     # algorithm 1
-    algo1_index_count = 0
     algo1_indices = []
     for model in rlgroot.models:
         for mesh in model.meshes:
             algo1_indices += mesh.encode_indices(algorithm=1)
     algo1_index_count = len(algo1_indices)
     # algorithm 2
-    algo2_index_count = 0
+    algo2_indices = []
     for model in rlgroot.models:
         for mesh in model.meshes:
-            algo2_index_count += len(mesh.encode_indices(algorithm=2))
+            algo2_indices += mesh.encode_indices(algorithm=2)
+    algo2_index_count = len(algo2_indices)
     # Calculate percentages
     original_percent = 100*original_index_count/naive_index_count
     algo1_percent = 100*algo1_index_count/naive_index_count
@@ -115,6 +116,15 @@ Index count with algorithm 1: {3} ({4}%)\n
 '''.format(original_index_count, original_percent, naive_index_count,
         algo1_index_count, algo1_percent 
           algo2_index_count, algo2_percent))
+    # Check for missing faces in algo2's output
+    m1 = RlgMesh()
+    m2 = RlgMesh()
+    m1.decode_indices(algo1_indices)
+    m2.decode_indices(algo2_indices)
+    m1.sort_index_order_of_faces() # TODO: define this
+    m2.sort_index_order_of_faces()
+    diff = difflib.ndiff(str(m1.faces), str(m2.faces))
+    print(diff)
 
 
 
