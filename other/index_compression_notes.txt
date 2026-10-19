@@ -71,3 +71,36 @@ Bowser algo2
 00AD00AE 00AB00AB 00AB00AE 00C100C1  00C100DD 00AB00AB 00AB00DD 00B800B8 
 00B800DD 00DC00DC 00DC00B9 00B800B8  00B800B9 00B600B6 00B600B7 00B800B8 
 00B800B7 00AC00AC
+
+
+Bowser faces that are different
+1 178 6 -> 1 3 178
+  Face(10,19,178)
+- Face(1,178,6)
+?           --
++ Face(1,3,178)
+?        ++
+  Face(1,6,3)
+  Face(3,6,5)
+
+3 4 17 -> 3 17 5
+  Face(13,20,17)
+- Face(3,4,17)
+?        --
++ Face(3,17,5)
+?          ++
+  Face(3,5,4)
+  Face(0,4,5)
+
+
+Bowser Algo 1 @ 0x2930:
+00110003 00040005 00050005 00050005 00040000 00000000 00050005 00000002
+
+Bowser Algo 2 @ 0x2164
+00110005 00030004 00040004 00000005 00050005 00000002 00020002 00000001
+
+(Both are preceded by some 0x11s)
+Now, why does algo1 have a 17,3,4 face,
+while algo2 has a 17,5,3 face
+
+initial padding was omitted?

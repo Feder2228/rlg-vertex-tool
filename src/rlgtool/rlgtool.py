@@ -95,16 +95,18 @@ def index_compression_test(source_rlg_path):
             naive_index_count += len(mesh.encode_indices(algorithm=0))
     # algorithm 1
     algo1_indices = []
+    algo1_index_count = 0
     for model in rlgroot.models:
         for mesh in model.meshes:
-            algo1_indices += mesh.encode_indices(algorithm=1)
-    algo1_index_count = len(algo1_indices)
+            algo1_indices.append(mesh.encode_indices(algorithm=1))
+            algo1_index_count += len(algo1_indices[-1])
     # algorithm 2
     algo2_indices = []
+    algo2_index_count = 0
     for model in rlgroot.models:
         for mesh in model.meshes:
-            algo2_indices += mesh.encode_indices(algorithm=2)
-    algo2_index_count = len(algo2_indices)
+            algo2_indices.append(mesh.encode_indices(algorithm=2))
+            algo2_index_count += len(algo2_indices[-1])
     # Calculate percentages
     original_percent = 100*original_index_count/naive_index_count
     algo1_percent = 100*algo1_index_count/naive_index_count
@@ -114,17 +116,19 @@ Index count with naive algorithm: {2} (100%)\n
 Index count with algorithm 1: {3} ({4}%)\n
 {5} ({6}%)
 '''.format(original_index_count, original_percent, naive_index_count,
-        algo1_index_count, algo1_percent 
+        algo1_index_count, algo1_percent, 
           algo2_index_count, algo2_percent))
     # Check for missing faces in algo2's output
-    m1 = RlgMesh()
-    m2 = RlgMesh()
-    m1.decode_indices(algo1_indices)
-    m2.decode_indices(algo2_indices)
-    m1.sort_index_order_of_faces() # TODO: define this
-    m2.sort_index_order_of_faces()
-    diff = difflib.ndiff(str(m1.faces), str(m2.faces))
-    print(diff)
+    m1 = []
+    m2 = []
+    txtfile = open(source_rlg_path+".txt", "w")
+    for i in range(len(algo1_indices)):
+        m1.append(RlgMesh())
+        m1[i].decode_indices(algo1_indices[i], lowest_index_first=True)
+        m2.append(RlgMesh())
+        m2[i].decode_indices(algo2_indices[i], lowest_index_first=True)
+        diff = difflib.ndiff(rlgroot.models[0].meshes[i].list_faces(), m2[i].list_faces())
+        txtfile.write("".join(diff))
 
 
 

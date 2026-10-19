@@ -260,7 +260,7 @@ class RlgMesh:
         #            (RlgVAPType.BONE_INDICES, 4),
         #            (RlgVAPType.BONE_WEIGHTS, 16))
 
-    def decode_indices(self, indices : list[int]):
+    def decode_indices(self, indices : list[int], lowest_index_first=False):
         """Generate faces from a list of indices formatted as the RLG format
 
         convert the RLG index list into a list of RlgFace objects and
@@ -270,6 +270,7 @@ class RlgMesh:
         
         Args:
             indices: list of ints
+            lowest_index_first: if True, first index of each face will always be the lowest
         """
         self.faces.clear()
         if len(indices) < 3:
@@ -279,19 +280,27 @@ class RlgMesh:
                 and indices[i] != indices[i+1] \
                 and indices[i] != indices[i+2]:
                 if i%2 == 0:
-                    self.faces.append(RlgFace([
+                    face = RlgFace([
                         indices[i],
                         indices[i+1],
                         indices[i+2]
-                    ]))
+                    ])
                 else:  # in RLG files, the normal is flipped for faces that start at odd indices
-                    self.faces.append(RlgFace([
+                    face = RlgFace([
                         indices[i+1],
                         indices[i],
                         indices[i+2]
-                    ]))
+                    ])
+                self.faces.append(face)
+                if lowest_index_first:
+                    if face.indices[1] < face.indices[0] and \
+                        face.indices[1] < face.indices[2]:
+                        face.indices = [face.indices[1], face.indices[2], face.indices[0]]
+                    elif face.indices[2] < face.indices[0] and \
+                        face.indices[2] < face.indices[1]:
+                        face.indices = [face.indices[2], face.indices[0], face.indices[1]]
 
-    def encode_indices(self, algorithm=2) -> list[int]:
+    def encode_indices(self, algorithm=1) -> list[int]:
         """Take this meshe's list of faces as input and return a list of
         indices that are formatted the same way as they are in a RLG file...
 
@@ -328,7 +337,8 @@ class RlgMesh:
             last_face_has_index_in_common = False
             for i, face in enumerate(self.faces):
                 # last_indices = indices[-3:] if len(indices) > 2 else []
-                # STEP 2: FACE CONTENT AND FINAL PADDING
+                if 10 in face.indices and 19 in face.indices and 178 in face.indices:
+                    pass
                 if i != len(self.faces)-1:
                     # Attempt to find indices that face (i) and face (i+1) have in common
                     shared_indices = face.get_shared_face_indices(self.faces[i+1])
@@ -343,8 +353,6 @@ class RlgMesh:
                     Face (i+1) must NOT be rotated again in future iterations.
                     Because of that, this case cannot be applied on two consecutive iterations.
                     """
-                    if len(shared_indices) == 2:
-                        pass
                     face.shift_index_to_end(shared_indices[0])
                     # Initial padding
                     if len(indices) > 0 and not last_face_has_index_in_common:
@@ -387,17 +395,187 @@ class RlgMesh:
                     indices.append(indices[-1])
                     last_face_has_index_in_common = False
 
+
+        elif algorithm == 3:
+            # self.sort_faces()
+            face_is_locked = False  # If True, face cannot be rotated
+            """
+            Padding
+            Value from -2 to 2
+
+            In the following examples, letters are indices.
+            3 letters in a row represent a triangle.
+            More than 3 letters in a row represent a triangle strip.
+            The faces to the left of the arrow are encoded into a triangle
+            strip that looks like the one on the right of the arrow.
+
+            -2 means an optimization like this:
+            ABC CBD -> ABCD 
+
+            -1 means an optimization like this:
+            ABC CBD -> ABCBD  
+
+            0 means an optimization like this:
+            ABC DCE -> ABCCDE  
+
+            1 means an optimization like this:
+            ABC CDE -> ABCCCDE
+
+            2 means the case where no optimization can be done:
+            ABC DEF -> ABCCDDEF
+            """
+            curr_padding_needed = 0  
+            flip_face = False  # if True, current face must be flipped.
+
+            for i, face in enumerate(self.faces):
+                # last_indices = indices[-3:] if len(indices) > 2 else []
+                if 10 in face.indices and 19 in face.indices and 178 in face.indices:
+                    pass
+
+                
+
+
+                if i != len(self.faces)-1:
+                    # Attempt to find indices that face (i) and face (i+1) have in common
+                    shared_indices = face.get_shared_face_indices(self.faces[i+1])
+                    if len(shared_indices) == 2:
+                        shared_indices_reverse = [shared_indices[1], shared_indices[0]]
+                        # If face is locked, that means it cannot be rotated.
+                        # We must make it so that we can only use the optimization
+                        # if the face has exactly the two indices we need
+                        # as the last two indices.
+                        # This makes it possible for next face to utilze those
+                        # two indices without rotatic current face.
+                        # 
+                        # If the shared_indices are not the final two of the
+                        # face, then pretend there are no final indices.
+                        if face_is_locked and shared_indices != face[1:]:
+                            shared_indices = []
+
+                if i != len(self.faces)-1 and \
+                    len(shared_indices) == 2:
+                    """
+                    CASE 3:
+                    Two indices in common.
+                    """
+                    if self.faces[i+1].index(shared_indices[0]) > self.faces[i+1].index(shared_indices[1]):
+                        """
+                        CASE 3a:
+                        indices of the second faces are stored in inverse order.
+                        ABC CBD
+                        becomes
+                        ABCD
+                        """
+                        face.shift_sequence_to_end(shared_indices)
+                        self.faces[i+1].shift_sequence_to_start(shared_indices_reverse)
+                        # Face
+                        next_padding_needed = -2
+                        face_is_locked = True
+                    else:
+                        """
+                        CASE 3b:
+                        indices of the second faces are stored in the same order as face 1.
+                        ABC BCD
+                        becomes
+                        ABCCBD
+                        """
+                        face.shift_sequence_to_end(shared_indices)
+                        self.faces[i+1].shift_sequence_to_start(shared_indices)
+                        next_padding_needed = -1
+                        face_is_locked = True
+
+
+                elif i != len(self.faces)-1 and \
+                    len(shared_indices) == 1 and \
+                    not face_is_locked:
+                    """ 
+                    CASE 1:
+                    You find one index in common, rotate face (i)'s and face (i+1)'s
+                    to make that index be at the start of (i) and the end of (i+1).
+                    Face (i+1) must NOT be rotated again in future iterations.
+                    Because of that, this case cannot be applied on two consecutive iterations.
+                    """
+                    face.shift_index_to_end(shared_indices[0])
+                    # Initial padding
+                    if len(indices) > 0 and not face_is_locked:
+                        indices.append(face.indices[0])
+                    # Face
+                    indices = indices + face.indices
+                    face_is_locked = True
+                    self.faces[i+1].shift_index_to_start(shared_indices[0])
+                    # Just need one index for the final padding
+                    indices.append(indices[-1])
+                elif i != len(self.faces)-1 and \
+                    face_is_locked and \
+                    face.indices[-1] in self.faces[i+1].indices:
+                    """ 
+                    CASE 2:
+                    Similar to case 1, except that Face (i) cannot be rotated, so we only look
+                    at its last index and try to find a common index with face (i+1)
+                    """
+                    # Initial padding
+                    if len(indices) > 0 and not face_is_locked:
+                        indices.append(face.indices[0])
+                    # Face
+                    indices = indices + face.indices
+                    face_is_locked = True
+                    self.faces[i+1].shift_index_to_start(face.indices[-1])
+                    # Just need one index for the final padding
+                    indices.append(indices[-1])
+                else:
+                    """ 
+                    DEFAULT CASE:
+                    no optimization is possible
+                    """
+                    # Initial padding
+                    if len(indices) > 0 and not face_is_locked:
+                        indices.append(face.indices[0])
+                    # Face
+                    indices = indices + face.indices
+                    # final padding (repeat last index twice)
+                    indices.append(indices[-1])
+                    indices.append(indices[-1])
+                    face_is_locked = False
+
+
+                # At this point in the code, face rotations need to already have occurred
+                # I need to figure out what to do with odd number indices and at
+                # which point in the loop I need to flip the face.
+
+                # WRITE THE PADDING
+                # Both the previous face's final padding and the current
+                # face's initial padding
+                if curr_padding_needed == 2:
+                    indices.append(indices[-1])
+                    indices.append(face.indices[0])
+                if curr_padding_needed == 1:
+                    indices.append(indices[-1])
+                # WRITE THE FACE INDICES
+                if curr_padding_needed == -2:  
+                    indices.append(face.indices[2])
+                elif curr_padding_needed == -1:
+                    indices.append(face.indices[1])
+                    indices.append(face.indices[2])
+                else:
+                    indices = indices + face.indices
+
+
+                # update padding variable
+                curr_padding_needed = next_padding_needed
+
+        # Mesh final padding just in case
+        indices.append(indices[-1])
+        indices.append(indices[-1])
         return indices
 
-    def sort_indices_of_faces(self):
-        """Not actual sorting.
-        put smallest index at the beginning.
-        don't flip normals"""
+
+    def list_faces(self) -> str:
+        a = []
         for face in self.faces:
-            if face.indices[1] < face.indices[0] and face.indices[1] < face.indices[2]:
-                face.indices = [face.indices[1], face.indices[2], face.indices[0]]
-            elif face.indices[2] < face.indices[0] and face.indices[2] < face.indices[1]:
-                face.indices = [face.indices[2], face.indices[0], face.indices[1]]
+            a.append(str(face)+"\n")
+        return a
+            
+            
     
     def sort_faces(self):
         """Sort self.faces, by making it so for each i, face i and face i+1
@@ -492,6 +670,13 @@ class RlgFace:
     def __init__(self, indices=list()):
         self.indices = indices
 
+    def __str__(self):
+        return "Face({0},{1},{2})".format(
+            self.indices[0],
+            self.indices[1],
+            self.indices[2]
+        )
+
     def shift_index_to_end(self, target_index):
         """Rotate the face indices in a way so that the indices that match
         one of the values in the target_indices list go to the end. 
@@ -531,6 +716,22 @@ class RlgFace:
             if target_index == self.indices[0]:
                 return
         raise Exception("couldn't find the indices {0} in {1}".format(target_index, self.indices))
+
+    def shift_sequence_to_end(self, target_sequence):
+        for i in range(3):
+            self.indices = self.indices[1:] + [self.indices[0]]  # rotate the indices
+            if target_sequence[0] == self.indices[1] and \
+                target_sequence[1] == self.indices[2]:
+                return
+        raise Exception("couldn't find the indices {0} in {1}".format(target_sequence, self.indices))
+
+    def shift_sequence_to_start(self, target_sequence):
+        for i in range(3):
+            self.indices = self.indices[1:] + [self.indices[0]]  # rotate the indices
+            if target_sequence[0] == self.indices[0] and \
+                target_sequence[1] == self.indices[1]:
+                return
+        raise Exception("couldn't find the indices {0} in {1}".format(target_sequence, self.indices))
 
     def get_shared_face_indices(self, face2):
         """Return a list of the indices that are shared across the two faces.

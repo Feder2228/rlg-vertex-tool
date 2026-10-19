@@ -31,7 +31,7 @@
             "module": "src.rlgtool.cli",
             "args": [
                 "ict",
-                "./tests/files_for_testing/original/mario/mario.rlg",
+                "./tests/files_for_testing/original/bowser/bowser.rlg",
             ]
         }
     ]
