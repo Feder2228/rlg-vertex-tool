@@ -389,8 +389,17 @@ class RlgMesh:
 
         return indices
 
-
-    def sort_faces():
+    def sort_indices_of_faces(self):
+        """Not actual sorting.
+        put smallest index at the beginning.
+        don't flip normals"""
+        for face in self.faces:
+            if face.indices[1] < face.indices[0] and face.indices[1] < face.indices[2]:
+                face.indices = [face.indices[1], face.indices[2], face.indices[0]]
+            elif face.indices[2] < face.indices[0] and face.indices[2] < face.indices[1]:
+                face.indices = [face.indices[2], face.indices[0], face.indices[1]]
+    
+    def sort_faces(self):
         """Sort self.faces, by making it so for each i, face i and face i+1
         have (if possible) at least one vertex in common
         
