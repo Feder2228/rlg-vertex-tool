@@ -401,7 +401,7 @@ class RlgMesh:
             face_is_locked = False  # If True, face cannot be rotated
             """
             Padding
-            Value from -2 to 2
+            Value from -2 to 3
 
             In the following examples, letters are indices.
             3 letters in a row represent a triangle.
@@ -420,9 +420,17 @@ class RlgMesh:
 
             1 means an optimization like this:
             ABC CDE -> ABCCCDE
+            (Actually in this case you could just do ABC CDE -> ABCCED, but
+            depending on whether you need an odd or an even index for the
+            second face to start on, this could be useful)
 
-            2 means the case where no optimization can be done:
+            2 means the case where almost no optimization can be done:
             ABC DEF -> ABCCDDEF
+
+            3 means the case where no optimization can be done, and also
+            you need an extra index of padding for the second face to start
+            at an even index (this is what naive algo does):
+            ABC DEF -> ABCCCDDEF
             """
             curr_padding_needed = 0  
             flip_face = False  # if True, current face must be flipped.
@@ -451,6 +459,7 @@ class RlgMesh:
                         # face, then pretend there are no final indices.
                         if face_is_locked and shared_indices != face[1:]:
                             shared_indices = []
+                        # TODO: handle the case where there is only 1 mutual vertex in the same way
 
                 if i != len(self.faces)-1 and \
                     len(shared_indices) == 2:
@@ -458,6 +467,9 @@ class RlgMesh:
                     CASE 3:
                     Two indices in common.
                     """
+                    # this condition is wrong btw. What happens if you have BAC BCD
+                    # self.faces[i+1].index(shared_indices[0]) - self.faces[i+1].index(shared_indices[1]) in (1,-2) (maybe???)
+                    # TODO: make a method just for this. Call it like do_faces_follow_sequence_in_same_order(sequence)
                     if self.faces[i+1].index(shared_indices[0]) > self.faces[i+1].index(shared_indices[1]):
                         """
                         CASE 3a:
