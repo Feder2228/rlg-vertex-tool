@@ -341,7 +341,7 @@ class RlgMesh:
                     pass
                 if i != len(self.faces)-1:
                     # Attempt to find indices that face (i) and face (i+1) have in common
-                    shared_indices = face.get_shared_sequence_of_indices(self.faces[i+1])
+                    shared_indices = face.get_shared_indices(self.faces[i+1])
 
                 if i != len(self.faces)-1 and \
                     (len(shared_indices) == 1 or (len(shared_indices) >= 1 and algorithm==2)) and \
@@ -447,7 +447,7 @@ class RlgMesh:
                     # Determine relationship between curr_face and next
                     next_face = self.faces[i+1]
                     relationship = curr_face.determine_relationship(next_face, curr_face_locked)
-                    shared_indices = curr_face.get_shared_sequence_of_indices(next_face)
+                    shared_indices = curr_face.get_shared_indices(next_face)
                     # Determine next iteration's padding
                     if relationship == REL_NO_SHARED_INDICES:
                         next_padding = 2
@@ -678,7 +678,7 @@ class RlgFace:
                 return
         raise Exception("couldn't find the indices {0} in {1}".format(target_sequence, self.indices))
 
-    def get_shared_sequence_of_indices(self, other):
+    def get_shared_indices(self, other):
         """Return a list of the indices that are shared across the two faces.
 
         self and other are assumed to not have any duplicate indices.
@@ -698,7 +698,8 @@ class RlgFace:
                 a.append(i)
         # Adjust the order. If self is ABC with AC as shared indices, the
         # returned list must be [C,A], not [A,C]
-        if a[0] == self.indices[0] and a[1] == self.indices[2]:
+        if len(a) == 2 and \
+            a[0] == self.indices[0] and a[1] == self.indices[2]:
             a[0], a[1] = a[1], a[0]
         return a
 
@@ -727,8 +728,10 @@ class RlgFace:
                 shared_indices = [self.indices[2]]
                 if self.indices[1] in other.indices:
                     shared_indices = [self.indices[1], self.indices[2]]
+            else:
+                shared_indices = []
         else:
-            shared_indices = self.get_shared_sequence_of_indices(other)
+            shared_indices = self.get_shared_indices(other)
         if len(shared_indices) in (0,1):
             return len(shared_indices)
         if other.contains_sequence(shared_indices):
