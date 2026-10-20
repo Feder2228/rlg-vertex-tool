@@ -341,7 +341,7 @@ class RlgMesh:
                     pass
                 if i != len(self.faces)-1:
                     # Attempt to find indices that face (i) and face (i+1) have in common
-                    shared_indices = face.get_shared_face_indices(self.faces[i+1])
+                    shared_indices = face.get_shared_sequence_of_indices(self.faces[i+1])
 
                 if i != len(self.faces)-1 and \
                     (len(shared_indices) == 1 or (len(shared_indices) >= 1 and algorithm==2)) and \
@@ -397,8 +397,6 @@ class RlgMesh:
 
 
         elif algorithm == 3:
-            # self.sort_faces()
-            face_is_locked = False  # If True, face cannot be rotated
             """
             Padding
             Value from -2 to 3
@@ -432,152 +430,87 @@ class RlgMesh:
             at an even index (this is what naive algo does):
             ABC DEF -> ABCCCDDEF
             """
-            curr_padding_needed = 0  
-            flip_face = False  # if True, current face must be flipped.
+            REL_NO_SHARED_INDICES = 0
+            REL_ONE_SHARED_INDEX = 1
+            REL_SEQUENCE_SAME = 2
+            REL_SEQUENCE_REVERSE = 3
 
-            for i, face in enumerate(self.faces):
-                # last_indices = indices[-3:] if len(indices) > 2 else []
-                if 10 in face.indices and 19 in face.indices and 178 in face.indices:
-                    pass
+            curr_padding = 0  
+            curr_face_flipped = False
+            curr_face_locked = False
+            next_padding = 0  
+            next_face_flipped = False
+            next_face_locked = False
 
-                
-
-
+            for i, curr_face in enumerate(self.faces):
                 if i != len(self.faces)-1:
-                    # Attempt to find indices that face (i) and face (i+1) have in common
-                    shared_indices = face.get_shared_face_indices(self.faces[i+1])
-                    if len(shared_indices) == 2:
-                        shared_indices_reverse = [shared_indices[1], shared_indices[0]]
-                        # If face is locked, that means it cannot be rotated.
-                        # We must make it so that we can only use the optimization
-                        # if the face has exactly the two indices we need
-                        # as the last two indices.
-                        # This makes it possible for next face to utilze those
-                        # two indices without rotatic current face.
-                        # 
-                        # If the shared_indices are not the final two of the
-                        # face, then pretend there are no final indices.
-                        if face_is_locked and shared_indices != face[1:]:
-                            shared_indices = []
-                        # TODO: handle the case where there is only 1 mutual vertex in the same way
-
-                if i != len(self.faces)-1 and \
-                    len(shared_indices) == 2:
-                    """
-                    CASE 3:
-                    Two indices in common.
-                    """
-                    # this condition is wrong btw. What happens if you have BAC BCD
-                    # self.faces[i+1].index(shared_indices[0]) - self.faces[i+1].index(shared_indices[1]) in (1,-2) (maybe???)
-                    # TODO: make a method just for this. Call it like do_faces_follow_sequence_in_same_order(sequence)
-                    if self.faces[i+1].index(shared_indices[0]) > self.faces[i+1].index(shared_indices[1]):
-                        """
-                        CASE 3a:
-                        indices of the second faces are stored in inverse order.
-                        ABC CBD
-                        becomes
-                        ABCD
-                        """
-                        face.shift_sequence_to_end(shared_indices)
-                        self.faces[i+1].shift_sequence_to_start(shared_indices_reverse)
-                        # Face
-                        next_padding_needed = -2
-                        face_is_locked = True
+                    # Determine relationship between curr_face and next
+                    next_face = self.faces[i+1]
+                    relationship = curr_face.determine_relationship(next_face, curr_face_locked)
+                    shared_indices = curr_face.get_shared_sequence_of_indices(next_face)
+                    # Determine next iteration's padding
+                    if relationship == REL_NO_SHARED_INDICES:
+                        next_padding = 2
+                    if relationship == REL_ONE_SHARED_INDEX:
+                        next_padding = 0
+                    if relationship == REL_SEQUENCE_SAME:
+                        next_padding = -2 if curr_face_flipped else 0
+                    if relationship == REL_SEQUENCE_REVERSE:
+                        next_padding = 0 if curr_face_flipped else -2
+                    # Decide whether to flip next face or not
+                    if (next_padding in (-2,0,2) and not curr_face_flipped) or \
+                        (next_padding in (-1,1,-3) and curr_face_flipped):
+                        next_face_flipped = True
+                        next_face.flip()
                     else:
-                        """
-                        CASE 3b:
-                        indices of the second faces are stored in the same order as face 1.
-                        ABC BCD
-                        becomes
-                        ABCCBD
-                        """
-                        face.shift_sequence_to_end(shared_indices)
-                        self.faces[i+1].shift_sequence_to_start(shared_indices)
-                        next_padding_needed = -1
-                        face_is_locked = True
+                        next_face_flipped = False
+                    # Rotate faces
+                    indices_before = curr_face.indices  # for debugging purposes
+                    if len(shared_indices) == 1:
+                        curr_face.rotate_index_to_end(shared_indices[0])
+                        next_face.rotate_index_to_start(shared_indices[0])
+                        next_face_locked = True
+                        assert curr_face.indices[2] == next_face.indices[0] == shared_indices[0]
+                    if len(shared_indices) == 2:
+                        curr_face.rotate_sequence_to_end(shared_indices)
+                        next_face.rotate_sequence_to_start(shared_indices)
+                        next_face_locked = True
+                        assert curr_face.indices[1:] == next_face.indices[0:2] == shared_indices
+                    else:
+                        next_face_locked = False
+                    if curr_face_locked:
+                        assert indices_before == curr_face.indices
 
-
-                elif i != len(self.faces)-1 and \
-                    len(shared_indices) == 1 and \
-                    not face_is_locked:
-                    """ 
-                    CASE 1:
-                    You find one index in common, rotate face (i)'s and face (i+1)'s
-                    to make that index be at the start of (i) and the end of (i+1).
-                    Face (i+1) must NOT be rotated again in future iterations.
-                    Because of that, this case cannot be applied on two consecutive iterations.
-                    """
-                    face.shift_index_to_end(shared_indices[0])
-                    # Initial padding
-                    if len(indices) > 0 and not face_is_locked:
-                        indices.append(face.indices[0])
-                    # Face
-                    indices = indices + face.indices
-                    face_is_locked = True
-                    self.faces[i+1].shift_index_to_start(shared_indices[0])
-                    # Just need one index for the final padding
+                # Write padding and indices
+                # padding of previous face
+                if curr_padding in (1,2):
                     indices.append(indices[-1])
-                elif i != len(self.faces)-1 and \
-                    face_is_locked and \
-                    face.indices[-1] in self.faces[i+1].indices:
-                    """ 
-                    CASE 2:
-                    Similar to case 1, except that Face (i) cannot be rotated, so we only look
-                    at its last index and try to find a common index with face (i+1)
-                    """
-                    # Initial padding
-                    if len(indices) > 0 and not face_is_locked:
-                        indices.append(face.indices[0])
-                    # Face
-                    indices = indices + face.indices
-                    face_is_locked = True
-                    self.faces[i+1].shift_index_to_start(face.indices[-1])
-                    # Just need one index for the final padding
+                elif curr_padding == 3:
                     indices.append(indices[-1])
+                    indices.append(indices[-1])
+                # padding of current face
+                if curr_padding in(2,3):
+                    indices.append(curr_face.indices[0])
+                # indices of current face
+                if curr_padding == -2:
+                    indices += [curr_face.indices[2]]
+                elif curr_padding == -1:
+                    indices += curr_face.indices[1:]
                 else:
-                    """ 
-                    DEFAULT CASE:
-                    no optimization is possible
-                    """
-                    # Initial padding
-                    if len(indices) > 0 and not face_is_locked:
-                        indices.append(face.indices[0])
-                    # Face
-                    indices = indices + face.indices
-                    # final padding (repeat last index twice)
-                    indices.append(indices[-1])
-                    indices.append(indices[-1])
-                    face_is_locked = False
+                    indices += curr_face.indices
 
-
-                # At this point in the code, face rotations need to already have occurred
-                # I need to figure out what to do with odd number indices and at
-                # which point in the loop I need to flip the face.
-
-                # WRITE THE PADDING
-                # Both the previous face's final padding and the current
-                # face's initial padding
-                if curr_padding_needed == 2:
-                    indices.append(indices[-1])
-                    indices.append(face.indices[0])
-                if curr_padding_needed == 1:
-                    indices.append(indices[-1])
-                # WRITE THE FACE INDICES
-                if curr_padding_needed == -2:  
-                    indices.append(face.indices[2])
-                elif curr_padding_needed == -1:
-                    indices.append(face.indices[1])
-                    indices.append(face.indices[2])
-                else:
-                    indices = indices + face.indices
-
-
-                # update padding variable
-                curr_padding_needed = next_padding_needed
+                # Update variables for next iteration
+                curr_padding = next_padding
+                curr_face_locked = next_face_locked
+                curr_face_flipped = next_face_flipped
+                next_padding = 0
+                next_face_locked = False
+                next_face_flipped = False
 
         # Mesh final padding just in case
         indices.append(indices[-1])
-        indices.append(indices[-1])
+        if len(indices) % 2 == 0:
+            indices.append(indices[-1])  # align
         return indices
 
 
@@ -745,19 +678,76 @@ class RlgFace:
                 return
         raise Exception("couldn't find the indices {0} in {1}".format(target_sequence, self.indices))
 
-    def get_shared_face_indices(self, face2):
+    def get_shared_sequence_of_indices(self, other):
         """Return a list of the indices that are shared across the two faces.
+
+        self and other are assumed to not have any duplicate indices.
+
+        Consider self.indices as a circular list: If the returned list
+        contains 2 elements, the second element is the element that follows
+        the first element in self.indices
+
+        For example:
+        Let's assume self shares indices A and B with other.
+        AB is returned if self is ABC, CAB or BCA
+        BA is returned if self is BAC, CBA or ACB
         """
         a = []
-        for i1 in self.indices:
-            if i1 in face2.indices:
-                a.append(i1)
+        for i in self.indices:
+            if i in other.indices:
+                a.append(i)
+        # Adjust the order. If self is ABC with AC as shared indices, the
+        # returned list must be [C,A], not [A,C]
+        if a[0] == self.indices[0] and a[1] == self.indices[2]:
+            a[0], a[1] = a[1], a[0]
         return a
 
     def flip(self):
         """Flip normals by swapping 2 indices
         """
         self.indices[0], self.indices[1] = self.indices[1], self.indices[0]
+
+    def determine_relationship(self, other, is_self_locked):
+        """Determine the relationship between self and other
+
+        Args:
+            other(RlgFace)
+            is_self_locked(bool) if True, the code will consider the fact
+                that self cannot be rotated or flipped.
+                It will treat shared indices in a different way
+        Return:
+            0 if no indices in common
+            1 if one index in common
+            2 if two indices in common, with their sequence being the same
+            (ABC BDA are faces where the sequence AB appears, but BA doesn't)
+            3 if two indices in common, reverse sequence
+        """
+        if is_self_locked:
+            if self.indices[2] in other.indices:
+                shared_indices = [self.indices[2]]
+                if self.indices[1] in other.indices:
+                    shared_indices = [self.indices[1], self.indices[2]]
+        else:
+            shared_indices = self.get_shared_sequence_of_indices(other)
+        if len(shared_indices) in (0,1):
+            return len(shared_indices)
+        if other.contains_sequence(shared_indices):
+            return 2
+        return 3
+
+    def contains_sequence(self, sequence):
+        """Return True if sequence appears in the face's indices.
+        the sequence must appear as two consecutive indices, with the indices
+        list being treated as a circular list.
+        For example:
+        AB appears in ABC, CAB, BCA, but not in BAC, CBA, ACB (BA appears in those)
+        """
+        if sequence == self.indices[0:2] or \
+            sequence == self.indices[1:] or \
+            sequence == [self.indices[2], self.indices[0]]:
+            return True
+        return False
+
 
 
 class RlgMaterial:
