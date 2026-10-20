@@ -121,3 +121,33 @@ class TestRlgDataStructures(unittest.TestCase):
         self.assertEqual(len(indices), len(correct_indices))
         for i in range(len(correct_indices)):
             self.assertEqual(indices[i], correct_indices[i])
+
+
+    def test_encode_indices_algo3(self):
+        f3 = [ 
+            [[0,1,2], [0,5,4]],
+            [[0,1,2], [3,4,5]],
+            [[0,1,2], [2,1,3]],
+            [[5,0,1], [1,0,2], [1,2,3]],  # FAB BAC BCD
+            [[5,0,1], [1,0,2], [2,1,3]]   # FAB BAC CBD
+        ]
+
+        correct_indices = [
+            #0 . 2 . 4 . 6 . 8 . A
+            [1,2,0,0,4,5,5,5],
+            [0,1,2,2,4,4,3,5,5,5],
+            [0,1,2,3,3,3],
+            [5,0,1,2,3,3],
+            [5,0,1,2,2,1,3,3,3]
+        ]
+        
+        meshes = []
+        for i, f2 in enumerate(f3):
+            mesh = RlgMesh()
+            for f1 in f2:
+                mesh.faces.append(RlgFace(indices=f1))
+            indices = mesh.encode_indices(algorithm=3)   
+            print(indices)
+            self.assertEqual(len(indices), len(correct_indices[i]))
+            for j in range(len(correct_indices[i])):
+                self.assertEqual(indices[j], correct_indices[i][j])

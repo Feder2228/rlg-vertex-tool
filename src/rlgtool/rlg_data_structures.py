@@ -467,13 +467,13 @@ class RlgMesh:
                     # Rotate faces
                     indices_before = curr_face.indices  # for debugging purposes
                     if len(shared_indices) == 1:
-                        curr_face.rotate_index_to_end(shared_indices[0])
-                        next_face.rotate_index_to_start(shared_indices[0])
+                        curr_face.shift_index_to_end(shared_indices[0])
+                        next_face.shift_index_to_start(shared_indices[0])
                         next_face_locked = True
                         assert curr_face.indices[2] == next_face.indices[0] == shared_indices[0]
                     if len(shared_indices) == 2:
-                        curr_face.rotate_sequence_to_end(shared_indices)
-                        next_face.rotate_sequence_to_start(shared_indices)
+                        curr_face.shift_sequence_to_end(shared_indices)
+                        next_face.shift_sequence_to_start(shared_indices)
                         next_face_locked = True
                         assert curr_face.indices[1:] == next_face.indices[0:2] == shared_indices
                     else:
@@ -509,7 +509,7 @@ class RlgMesh:
 
         # Mesh final padding just in case
         indices.append(indices[-1])
-        if len(indices) % 2 == 0:
+        if len(indices) % 2 == 1:
             indices.append(indices[-1])  # align
         return indices
 
