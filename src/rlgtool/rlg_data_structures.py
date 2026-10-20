@@ -300,7 +300,7 @@ class RlgMesh:
                         face.indices[2] < face.indices[1]:
                         face.indices = [face.indices[2], face.indices[0], face.indices[1]]
 
-    def encode_indices(self, algorithm=1) -> list[int]:
+    def encode_indices(self, algorithm=3) -> list[int]:
         """Take this meshe's list of faces as input and return a list of
         indices that are formatted the same way as they are in a RLG file...
 
@@ -447,7 +447,9 @@ class RlgMesh:
                     # Determine relationship between curr_face and next
                     next_face = self.faces[i+1]
                     relationship = curr_face.determine_relationship(next_face, curr_face_locked)
-                    shared_indices = curr_face.get_shared_indices(next_face)
+                    shared_indices = curr_face.get_shared_indices(next_face, curr_face_locked)
+                    if len(shared_indices) == 2:
+                        shared_indices_reverse = [shared_indices[1], shared_indices[0]]
                     # Determine next iteration's padding
                     if relationship == REL_NO_SHARED_INDICES:
                         next_padding = 2
@@ -467,16 +469,26 @@ class RlgMesh:
                     # Rotate faces
                     indices_before = curr_face.indices  # for debugging purposes
                     if len(shared_indices) == 1:
+                        assert relationship == 1
                         curr_face.shift_index_to_end(shared_indices[0])
                         next_face.shift_index_to_start(shared_indices[0])
                         next_face_locked = True
                         assert curr_face.indices[2] == next_face.indices[0] == shared_indices[0]
-                    if len(shared_indices) == 2:
+                    elif len(shared_indices) == 2:
+                        assert relationship in (2,3)
                         curr_face.shift_sequence_to_end(shared_indices)
-                        next_face.shift_sequence_to_start(shared_indices)
+                        if (relationship == 3 and not next_face_flipped) or \
+                            (relationship == 2 and next_face_flipped):  # TODO: find the right condition.
+                            next_face.shift_sequence_to_start(shared_indices_reverse)
+                            assert curr_face.indices[1] == next_face.indices[1]
+                            assert curr_face.indices[2] == next_face.indices[0]
+                        else:
+                            next_face.shift_sequence_to_start(shared_indices)
+                            assert curr_face.indices[1:] == next_face.indices[0:2]
+                        # next_face.shift_sequence_to_start(shared_indices)
                         next_face_locked = True
-                        assert curr_face.indices[1:] == next_face.indices[0:2] == shared_indices
                     else:
+                        assert relationship == 0
                         next_face_locked = False
                     if curr_face_locked:
                         assert indices_before == curr_face.indices
@@ -678,7 +690,7 @@ class RlgFace:
                 return
         raise Exception("couldn't find the indices {0} in {1}".format(target_sequence, self.indices))
 
-    def get_shared_indices(self, other):
+    def get_shared_indices(self, other, is_self_locked=False):
         """Return a list of the indices that are shared across the two faces.
 
         self and other are assumed to not have any duplicate indices.
@@ -692,16 +704,25 @@ class RlgFace:
         AB is returned if self is ABC, CAB or BCA
         BA is returned if self is BAC, CBA or ACB
         """
-        a = []
-        for i in self.indices:
-            if i in other.indices:
-                a.append(i)
-        # Adjust the order. If self is ABC with AC as shared indices, the
-        # returned list must be [C,A], not [A,C]
-        if len(a) == 2 and \
-            a[0] == self.indices[0] and a[1] == self.indices[2]:
-            a[0], a[1] = a[1], a[0]
-        return a
+        shared_indices = []
+        if is_self_locked:
+            if self.indices[2] in other.indices:
+                shared_indices = [self.indices[2]]
+                if self.indices[1] in other.indices:
+                    shared_indices = [self.indices[1], self.indices[2]]
+                    if self.indices[0] in other.indices:
+                        shared_indices = self.indices
+        else:
+            for i in self.indices:
+                if i in other.indices:
+                    shared_indices.append(i)
+            # Adjust the order. If self is ABC with AC as shared indices, the
+            # returned list must be [C,A], not [A,C]
+            if len(shared_indices) == 2 and \
+                shared_indices[0] == self.indices[0] and \
+                    shared_indices[1] == self.indices[2]:
+                shared_indices[0], shared_indices[1] = shared_indices[1], shared_indices[0]
+        return shared_indices
 
     def flip(self):
         """Flip normals by swapping 2 indices
@@ -723,15 +744,7 @@ class RlgFace:
             (ABC BDA are faces where the sequence AB appears, but BA doesn't)
             3 if two indices in common, reverse sequence
         """
-        if is_self_locked:
-            if self.indices[2] in other.indices:
-                shared_indices = [self.indices[2]]
-                if self.indices[1] in other.indices:
-                    shared_indices = [self.indices[1], self.indices[2]]
-            else:
-                shared_indices = []
-        else:
-            shared_indices = self.get_shared_indices(other)
+        shared_indices = self.get_shared_indices(other, is_self_locked)
         if len(shared_indices) in (0,1):
             return len(shared_indices)
         if other.contains_sequence(shared_indices):
